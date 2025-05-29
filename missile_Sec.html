@@ -2,20 +2,24 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>미사일 피하기 게임(모바일)</title>
+  <title>미사일 피하기 게임</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    html, body { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; touch-action:none; }
+    html, body { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; touch-action:none;}
     body { background:#333; }
     #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; }
-    canvas { background:#fff; width:100vw; height:100vh; display:block; touch-action:none; }
+    canvas { background:#fff; width:100vw; height:74vh; display:block; margin:0 auto; touch-action:none; }
     #settings-btn {
-      position: absolute; left:2vw; top:2vw; width:12vw; height:12vw; min-width:42px; min-height:42px;
+      position:absolute; left:2vw; top:2vw; width:12vw; height:12vw; min-width:42px; min-height:42px;
       max-width:62px; max-height:62px; z-index:10;
       background:rgba(255,255,255,0.92); border-radius:50%; border:none;
       display:flex; align-items:center; justify-content:center; box-shadow:0 1px 8px #1113; cursor:pointer;
     }
     #settings-btn svg { width:67%; height:67%; fill:#1976d2; }
+    #timer {
+      position:absolute; right:4vw; top:2vw; font-size:5vw; color:#222; font-family:'Consolas', Arial; z-index:10;
+      background:rgba(255,255,255,0.7); border-radius:1vw; padding:1vw 2vw;
+    }
     #settings-panel {
       position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
       width:88vw; max-width:340px; background:#fff; border-radius:18px; box-shadow:0 2px 20px #2225;
@@ -23,7 +27,7 @@
     }
     #settings-title { font-size:5vw; color:#1976d2; margin-bottom:5vw; font-weight:bold; }
     #close-settings {
-      position: absolute; right:6vw; top:4vw; font-size:7vw; color:#999; background:none;
+      position:absolute; right:6vw; top:4vw; font-size:7vw; color:#999; background:none;
       border:none; cursor:pointer; z-index:51;
     }
     #sensitivity-slider { width:100%; accent-color:#1976d2; margin:2vw 0; }
@@ -41,21 +45,39 @@
       padding:2.6vw 7vw; border-radius:4vw; display:none; z-index:31; text-align:center;
       box-shadow:0 2px 10px rgba(0,0,0,0.10); user-select:none;
     }
-    #joystick {
-      position:fixed; left:0; top:0; width:92px; height:92px; z-index:20; opacity:0; pointer-events:none;
-      transition:opacity 0.09s;
-    }
-    #joystick.visible { opacity:0.98; pointer-events:auto; }
-    .joystick-bg { position:absolute; left:0; top:0; width:92px; height:92px; border-radius:50%;
-      background:#ddd; opacity:0.35; border:2.5px solid #bbb; }
-    .joystick-knob { position:absolute; left:31px; top:31px; width:30px; height:30px; background:#1976d2;
-      border-radius:50%; box-shadow:0 2px 8px #2222; border:2px solid #1976d2; }
     #countdown {
       position:fixed; left:50%; top:44%; transform:translate(-50%,-50%);
       font-size:14vw; color:#1976d2; font-family:'Consolas',Arial,sans-serif; font-weight:bold;
       background:rgba(255,255,255,0.92); padding:4vw 10vw 3vw 10vw;
       border-radius:5vw; display:none; z-index:100; text-align:center; box-shadow:0 2px 18px rgba(0,0,0,0.16);
       user-select:none; pointer-events:none;
+    }
+    #virtual-pad {
+      position:fixed; left:50%; bottom:2vw; transform:translateX(-50%);
+      width:34vw; height:34vw; min-width:130px; min-height:130px; max-width:220px; max-height:220px;
+      z-index:50; background:rgba(255,255,255,0.85); border-radius:50%; box-shadow:0 1px 10px #0003;
+      display:flex; align-items:center; justify-content:center;
+      border:2px solid #8bb6e4;
+      touch-action:none;
+      user-select:none;
+    }
+    .pad-arrow {
+      position:absolute; width:23%; height:23%; min-width:28px; min-height:28px;
+      background:none; border:none; border-radius:30%; display:flex; align-items:center; justify-content:center;
+      color:#5196cf; font-size:6vw; z-index:2;
+      box-shadow:0 1px 3px #0002;
+      touch-action:none;
+      user-select:none;
+      transition:background 0.11s;
+    }
+    .pad-arrow.active { background:#cce3fa; }
+    #pad-up { left:38.5%; top:7%; }
+    #pad-down { left:38.5%; bottom:7%; }
+    #pad-left { left:7%; top:38.5%; }
+    #pad-right { right:7%; top:38.5%; }
+    @media (max-width:450px) {
+      #virtual-pad { width:50vw; height:50vw; min-width:95px; min-height:95px; max-width:170px; max-height:170px;}
+      .pad-arrow { font-size:9vw; min-width:24px; min-height:24px; }
     }
   </style>
 </head>
@@ -65,6 +87,7 @@
   <button id="settings-btn" aria-label="설정">
     <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0-.32,0-.64,0-1s0-.65,0-1l2.11-1.65a.47.47,0,0,0,.11-.61l-2-3.46a.47.47,0,0,0-.57-.22l-2.49,1a7.09,7.09,0,0,0-1.74-1l-.38-2.65A.47.47,0,0,0,13,2h-4a.47.47,0,0,0-.46.39l-.38,2.65a7.09,7.09,0,0,0-1.74,1l-2.49-1a.47.47,0,0,0-.57.22l-2,3.46a.47.47,0,0,0,.11.61L4.86,10c0,.32,0,.64,0,1s0,.65,0,1L2.75,13.65a.47.47,0,0,0-.11.61l2,3.46a.47.47,0,0,0,.57.22l2.49-1a7.09,7.09,0,0,0,1.74,1l.38,2.65A.47.47,0,0,0,9,22h4a.47.47,0,0,0,.46-.39l.38-2.65a7.09,7.09,0,0,0,1.74-1l2.49,1a.47.47,0,0,0,.57-.22l2-3.46a.47.47,0,0,0-.11-.61ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
   </button>
+  <div id="timer">0.0sec</div>
   <div id="settings-panel">
     <button id="close-settings" aria-label="닫기">✕</button>
     <div id="settings-title">설정</div>
@@ -72,43 +95,47 @@
     <input type="range" id="sensitivity-slider" min="10" max="100" value="50" step="1">
     <div id="sensitivity-value">50</div>
   </div>
-  <div id="joystick">
-    <div class="joystick-bg"></div>
-    <div class="joystick-knob"></div>
-  </div>
   <div id="result"></div>
   <div id="restart">터치해서<br>시작하세요.</div>
   <div id="countdown"></div>
+  <div id="virtual-pad">
+    <button class="pad-arrow" id="pad-up">&#8593;</button>
+    <button class="pad-arrow" id="pad-down">&#8595;</button>
+    <button class="pad-arrow" id="pad-left">&#8592;</button>
+    <button class="pad-arrow" id="pad-right">&#8594;</button>
+  </div>
 </div>
 <script>
 let sensitivity = 0.5;
-let isPaused = false, waitingForResume = false, isDragging = false, startTime=0, pauseElapsed=0;
-let lastSurvivedSec = 0, survivedSec = 0, missileInterval = 900, lastMissileTime = 0, gameOver = false;
+let isPaused = false, waitingForResume = false, startTime=0, missileInterval=900, lastMissileTime=0, gameOver=false;
+let survivedSec = 0;
 const missiles = [];
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const timerDiv = document.getElementById('timer');
 const resultDiv = document.getElementById('result');
 const restartDiv = document.getElementById('restart');
-const joystick = document.getElementById('joystick');
-const knob = joystick.querySelector('.joystick-knob');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsPanel = document.getElementById('settings-panel');
 const closeSettings = document.getElementById('close-settings');
 const slider = document.getElementById('sensitivity-slider');
 const sValue = document.getElementById('sensitivity-value');
 const countdownDiv = document.getElementById('countdown');
+const pad = document.getElementById('virtual-pad');
+const padUp = document.getElementById('pad-up');
+const padDown = document.getElementById('pad-down');
+const padLeft = document.getElementById('pad-left');
+const padRight = document.getElementById('pad-right');
 
-let player = { x:0, y:0, r:30, color:'#1976d2', speed:5 };
-let joyDX = 0, joyDY = 0, baseX=0, baseY=0, joyRadius=46, knobRadius=15;
+let player = { x:0, y:0, r:30, color:'#5ba4e6', speed:5 };
+let moveState = {up:false,down:false,left:false,right:false};
 
-// ---------- 민감도 UI
 slider.value = 50;
 slider.addEventListener('input', function() {
   sensitivity = slider.value/100;
   sValue.textContent = slider.value;
 });
 
-// ---------- 일시정지·카운트다운 로직
 function showSettings() {
   isPaused = true;
   waitingForResume = false;
@@ -136,62 +163,14 @@ function countdown(n) {
       setTimeout(()=>{
         countdownDiv.style.display='none';
         isPaused = false; waitingForResume = false;
-        startTime = Date.now() - survivedSec*1000; // 일시정지 시간 보정
+        startTime = Date.now() - survivedSec*1000;
       },800);
     }
   } next();
 }
 
-// ---------- 조이스틱 드래그만 지원
-joystick.style.opacity = 0;
-function preventScroll(e) { e.preventDefault(); }
-let dragTouchId = null;
-
-canvas.addEventListener('touchstart', function(ev){
-  if(gameOver || isPaused || waitingForResume) return;
-  if(ev.touches.length > 1) return;
-  const t = ev.changedTouches[0];
-  isDragging = true; dragTouchId = t.identifier;
-  joystick.classList.add('visible');
-  joyRadius = joystick.offsetWidth/2; knobRadius = knob.offsetWidth/2;
-  baseX = t.clientX; baseY = t.clientY;
-  joystick.style.left = (baseX-joyRadius) + "px";
-  joystick.style.top  = (baseY-joyRadius) + "px";
-  knob.style.left = (joyRadius-knobRadius)+"px"; knob.style.top = (joyRadius-knobRadius)+"px";
-  joyDX = 0; joyDY = 0;
-  ev.preventDefault();
-},{passive:false});
-
-canvas.addEventListener('touchmove', function(ev){
-  if(!isDragging || isPaused || waitingForResume) return;
-  let t = null;
-  for(let i=0;i<ev.changedTouches.length;i++){
-    if(ev.changedTouches[i].identifier===dragTouchId) t = ev.changedTouches[i];
-  }
-  if(!t) return;
-  let dx = t.clientX - baseX, dy = t.clientY - baseY;
-  let dist = Math.sqrt(dx*dx+dy*dy), maxDist=joyRadius-knobRadius;
-  if(dist>maxDist){ dx=dx*maxDist/dist; dy=dy*maxDist/dist; }
-  knob.style.left = (joyRadius+dx-knobRadius)+"px";
-  knob.style.top = (joyRadius+dy-knobRadius)+"px";
-  joyDX = (dx/maxDist)*sensitivity; joyDY = (dy/maxDist)*sensitivity;
-  ev.preventDefault();
-},{passive:false});
-
-canvas.addEventListener('touchend', function(ev){
-  let up = false;
-  for(let i=0;i<ev.changedTouches.length;i++){
-    if(ev.changedTouches[i].identifier===dragTouchId) up=true;
-  }
-  if(up){
-    isDragging = false; dragTouchId = null;
-    joyDX = 0; joyDY = 0; joystick.classList.remove('visible');
-  }
-},{passive:false});
-
-// ---------- 미사일/충돌/이동 등 모든 루프
 function resizeCanvas() {
-  const dpr = window.devicePixelRatio||1, w=window.innerWidth, h=window.innerHeight;
+  const dpr = window.devicePixelRatio||1, w=window.innerWidth, h=window.innerHeight*0.74;
   canvas.width = w*dpr; canvas.height = h*dpr;
   canvas.style.width=w+'px'; canvas.style.height=h+'px';
   ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
@@ -199,7 +178,7 @@ function resizeCanvas() {
 }
 function updatePlayerStats(forceCenter) {
   const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
-  player.r = Math.round(Math.max(w,h)/19.5)||30; player.speed=Math.max(w,h)/110||5;
+  player.r = Math.round(Math.max(w,h)/19.5)||30; player.speed=Math.max(w,h)/110*sensitivity||5;
   if(isNaN(player.x)||isNaN(player.y)||isNaN(player.r)||forceCenter||
     player.x<player.r||player.x>w-player.r||player.y<player.r||player.y>h-player.r){
     player.x = w/2; player.y = h/2;
@@ -225,9 +204,8 @@ function startGame() {
   player.x = canvas.width/(window.devicePixelRatio||1)/2;
   player.y = canvas.height/(window.devicePixelRatio||1)/2;
   missiles.length=0; gameOver=false;
-  survivedSec=0; lastSurvivedSec=0; missileInterval=900;
+  survivedSec=0; missileInterval=900;
   resultDiv.style.display='none'; restartDiv.style.display='none';
-  joystick.classList.remove('visible');
   isPaused = false; waitingForResume = false; startTime = Date.now();
   requestAnimationFrame(gameLoop);
 }
@@ -235,41 +213,35 @@ function startGame() {
 function gameLoop() {
   const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
   updatePlayerStats();
-  // 멈춤 상태에서도 화면은 그려주나, 시간/미사일/움직임/충돌 전부 정지
   if(isPaused||waitingForResume){
     ctx.clearRect(0,0,w,h);
-    ctx.beginPath();
-    ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+    ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
     ctx.fillStyle=player.color; ctx.shadowColor='#90caf9'; ctx.shadowBlur=10; ctx.fill(); ctx.closePath(); ctx.shadowBlur=0;
     for(let i=0;i<missiles.length;i++){
       const m=missiles[i];
       ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2);
       ctx.fillStyle=m.color; ctx.fill(); ctx.closePath();
     }
-    ctx.save(); ctx.font="bold "+Math.round(w/18)+"px Consolas, Arial";
-    ctx.fillStyle="#1976d2"; ctx.textAlign="right";
-    ctx.fillText(survivedSec.toFixed(1)+" Sec",w-18,42); ctx.restore();
+    timerDiv.textContent = survivedSec.toFixed(1)+'sec';
     requestAnimationFrame(gameLoop); return;
   }
-  // 진행 중
   survivedSec = (Date.now()-startTime)/1000;
   ctx.clearRect(0,0,w,h);
-  // 이동
-  let dx=joyDX, dy=joyDY;
+  let dx=0,dy=0;
+  if(moveState.up)dy-=1;
+  if(moveState.down)dy+=1;
+  if(moveState.left)dx-=1;
+  if(moveState.right)dx+=1;
   if(dx!==0||dy!==0){
-    let len=Math.sqrt(dx*dx+dy*dy);
-    if(len>1){dx/=len;dy/=len;}
-    player.x += player.speed*dx;
-    player.y += player.speed*dy;
+    let len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
+    player.x += player.speed*dx; player.y += player.speed*dy;
     if(player.x-player.r<0)player.x=player.r;
     if(player.x+player.r>w)player.x=w-player.r;
     if(player.y-player.r<0)player.y=player.r;
     if(player.y+player.r>h)player.y=h-player.r;
   }
-  ctx.beginPath();
-  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
   ctx.fillStyle=player.color; ctx.shadowColor='#90caf9'; ctx.shadowBlur=10; ctx.fill(); ctx.closePath(); ctx.shadowBlur=0;
-  // 미사일
   for(let i=missiles.length-1;i>=0;i--){
     const m=missiles[i];
     m.x+=m.dx; m.y+=m.dy;
@@ -278,41 +250,65 @@ function gameLoop() {
     if(checkCollision(player,m)){gameOver=true;}
     if(m.x<-40||m.x>w+40||m.y<-40||m.y>h+40){missiles.splice(i,1);}
   }
-  // 미사일 생성
   const now=Date.now();
   if(now-lastMissileTime>missileInterval && !gameOver){
     spawnMissile(); lastMissileTime=now;
     if(missileInterval>450)missileInterval-=8;
   }
-  ctx.save(); ctx.font="bold "+Math.round(w/18)+"px Consolas, Arial";
-  ctx.fillStyle="#1976d2"; ctx.textAlign="right";
-  ctx.fillText(survivedSec.toFixed(1)+" Sec",w-18,42); ctx.restore();
+  timerDiv.textContent = survivedSec.toFixed(1)+'sec';
   if(gameOver){
     resultDiv.textContent = survivedSec.toFixed(1)+' Sec';
     resultDiv.style.display='block';
     restartDiv.style.display='block';
-    joystick.classList.remove('visible');
+    // pad 비활성화
+    pad.style.pointerEvents = 'none';
     canvas.ontouchstart = function(ev){
       if(ev.touches.length>1)return;
-      restartDiv.style.display='none'; startGame(); ev.preventDefault();
+      restartDiv.style.display='none'; pad.style.pointerEvents = 'auto'; startGame(); ev.preventDefault();
     };
     return;
   }
   requestAnimationFrame(gameLoop);
 }
-// ----------- 최초 시작
+
+// pad 이벤트 처리
+function setPadEvents(btn, dir) {
+  btn.addEventListener('touchstart', e=>{
+    moveState[dir]=true; btn.classList.add('active'); e.preventDefault();
+  },{passive:false});
+  btn.addEventListener('touchend', e=>{
+    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
+  },{passive:false});
+  btn.addEventListener('touchcancel', e=>{
+    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
+  },{passive:false});
+  btn.addEventListener('mousedown', e=>{
+    moveState[dir]=true; btn.classList.add('active'); e.preventDefault();
+  });
+  btn.addEventListener('mouseup', e=>{
+    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
+  });
+  btn.addEventListener('mouseleave', e=>{
+    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
+  });
+}
+setPadEvents(padUp, "up");
+setPadEvents(padDown, "down");
+setPadEvents(padLeft, "left");
+setPadEvents(padRight, "right");
+
+// 최초 시작
 function initialStart() {
   resizeCanvas(); updatePlayerStats(true);
   resultDiv.textContent=''; restartDiv.style.display='block';
   resultDiv.style.display='none'; restartDiv.innerHTML='터치해서<br>시작하세요.';
   canvas.ontouchstart = function(ev){
     if(ev.touches.length>1)return;
-    restartDiv.style.display='none'; startGame(); ev.preventDefault();
+    restartDiv.style.display='none'; pad.style.pointerEvents = 'auto'; startGame(); ev.preventDefault();
   };
 }
 window.addEventListener('resize', resizeCanvas);
 initialStart();
-
 </script>
 </body>
 </html>
