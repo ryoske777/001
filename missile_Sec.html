@@ -205,15 +205,14 @@
     let sensitivity = 0.5;
     let isPaused = false;
     let waitingForResume = false;
-    let lastPaused = 0;
 
     // ------------------ 감도 슬라이더
     const slider = document.getElementById('sensitivity-slider');
     const sValue = document.getElementById('sensitivity-value');
-    slider.addEventListener('input', function() {
+    slider.addEventListener('input', function(e) {
       sensitivity = slider.value / 100;
       sValue.textContent = slider.value;
-    });
+    }, false);
 
     // ------------------ 설정 패널, 톱니, 닫기, 카운트다운
     const settingsBtn = document.getElementById('settings-btn');
@@ -221,27 +220,34 @@
     const closeSettings = document.getElementById('close-settings');
     const countdownDiv = document.getElementById('countdown');
 
-    settingsBtn.addEventListener('click', openSettings);
-    settingsBtn.addEventListener('touchstart', function(e){ e.preventDefault(); openSettings(); }, {passive:false});
-    closeSettings.addEventListener('click', closeSettingsPanel);
-    closeSettings.addEventListener('touchstart', function(e){ e.preventDefault(); closeSettingsPanel(); }, {passive:false});
-
-    function openSettings() {
+    function showSettings() {
       isPaused = true;
+      waitingForResume = false;
       settingsPanel.style.display = 'block';
       countdownDiv.style.display = 'none';
     }
-
+    function hideSettingsAndCountdown() {
+      settingsPanel.style.display = 'none';
+      countdownDiv.style.display = 'none';
+    }
     function closeSettingsPanel() {
       settingsPanel.style.display = 'none';
-      // 3,2,1 카운트다운
       startResumeCountdown(3);
     }
 
+    // 터치/클릭 이벤트 위임
+    settingsBtn.addEventListener('touchstart', function(e){ e.preventDefault(); showSettings(); }, {passive:false});
+    settingsBtn.addEventListener('click', function(e){ e.preventDefault(); showSettings(); }, false);
+    closeSettings.addEventListener('touchstart', function(e){ e.preventDefault(); closeSettingsPanel(); }, {passive:false});
+    closeSettings.addEventListener('click', function(e){ e.preventDefault(); closeSettingsPanel(); }, false);
+
+    // 포커스 활성화 방지
+    settingsPanel.addEventListener('touchmove', function(e){ e.stopPropagation(); }, false);
+    slider.addEventListener('touchmove', function(e){ e.stopPropagation(); }, false);
+
     function startResumeCountdown(n) {
-      isPaused = true;
       waitingForResume = true;
-      settingsPanel.style.display = 'none';
+      isPaused = true;
       countdownDiv.textContent = n;
       countdownDiv.style.display = 'block';
       let count = n;
@@ -257,7 +263,6 @@
             countdownDiv.style.display = 'none';
             isPaused = false;
             waitingForResume = false;
-            lastPaused = 0;
           }, 800);
         }
       }
@@ -311,7 +316,7 @@
     }
 
     container.addEventListener('touchstart', function(ev) {
-      if (gameOver || isPaused) return;
+      if (gameOver || isPaused || waitingForResume) return;
       if (ev.touches.length > 1) return;
       const t = ev.touches[0];
       joystick.classList.add('visible');
@@ -331,7 +336,7 @@
     }, {passive:false});
 
     container.addEventListener('touchmove', function(ev) {
-      if(!joystickActive || isPaused) return;
+      if(!joystickActive || isPaused || waitingForResume) return;
       if (ev.touches.length === 0) return;
       const t = ev.touches[0];
       let dx = t.clientX - baseX;
@@ -401,7 +406,6 @@
       joystick.classList.remove('visible');
       isPaused = false;
       waitingForResume = false;
-      lastPaused = 0;
       requestAnimationFrame(gameLoop);
     }
 
@@ -410,15 +414,48 @@
       const h = canvas.height / (window.devicePixelRatio||1);
       updatePlayerStats();
 
-      if (!gameOver && !isPaused) {
+      // -------- 멈춤일 때 화면만 그리되, 모든 움직임/시간/미사일 생성 멈춤
+      if (isPaused || waitingForResume) {
+        // 배경과 오브젝트 그리기(멈춘 상태)
+        ctx.clearRect(0, 0, w, h);
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
+        ctx.shadowColor = '#90caf9';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.closePath();
+        ctx.shadowBlur = 0;
+        for (let i = missiles.length - 1; i >= 0; i--) {
+          const m = missiles[i];
+          ctx.beginPath();
+          ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+          ctx.fillStyle = m.color;
+          ctx.fill();
+          ctx.closePath();
+        }
+        // 시간(생존 초) 표시
+        ctx.save();
+        ctx.font = "bold " + Math.round(w/18) + "px Consolas, Arial";
+        ctx.fillStyle = "#1976d2";
+        ctx.textAlign = "right";
+        ctx.fillText(survivedSec.toFixed(1) + " Sec", w - 18, 42);
+        ctx.restore();
+
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+
+      // -------- 실제 게임진행 (움직임/시간/미사일)
+      if (!gameOver) {
         survivedSec = (Date.now() - startTime) / 1000;
       }
 
       ctx.clearRect(0, 0, w, h);
 
       // 조이스틱 이동값 즉각 반영
-      let dx = isPaused ? 0 : joyDX;
-      let dy = isPaused ? 0 : joyDY;
+      let dx = joyDX;
+      let dy = joyDY;
       if (dx !== 0 || dy !== 0) {
         let len = Math.sqrt(dx*dx + dy*dy);
         if(len > 1) { dx /= len; dy /= len; }
@@ -449,20 +486,18 @@
       ctx.closePath();
       ctx.shadowBlur = 0;
 
-      // 미사일 그리기 및 이동 (멈춤시 멈춤)
+      // 미사일 그리기 및 이동
       for (let i = missiles.length - 1; i >= 0; i--) {
         const m = missiles[i];
-        if (!isPaused && !gameOver) {
-          m.x += m.dx;
-          m.y += m.dy;
-        }
+        m.x += m.dx;
+        m.y += m.dy;
         ctx.beginPath();
         ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
         ctx.fillStyle = m.color;
         ctx.fill();
         ctx.closePath();
 
-        if (!isPaused && !gameOver && checkCollision(player, m)) {
+        if (checkCollision(player, m)) {
           gameOver = true;
         }
         if (
@@ -475,7 +510,7 @@
 
       // 미사일 추가 (점점 빨라짐)
       const now = Date.now();
-      if (!isPaused && !gameOver && (now - lastMissileTime > missileInterval)) {
+      if (now - lastMissileTime > missileInterval && !gameOver) {
         spawnMissile();
         lastMissileTime = now;
         if (missileInterval > 450) missileInterval -= 8;
@@ -536,6 +571,17 @@
       if (player.y < player.r) player.y = player.r;
       if (player.y > h - player.r) player.y = h - player.r;
     });
+
+    // 슬라이더 UI가 설정창이 켜질 때 마다 항상 맞춰서 보이도록
+    function syncSlider() {
+      slider.value = Math.round(sensitivity * 100);
+      sValue.textContent = slider.value;
+    }
+    // 설정창 켤 때마다 슬라이더 상태 동기화
+    settingsPanel.addEventListener('transitionend', syncSlider);
+    settingsBtn.addEventListener('click', syncSlider);
+    settingsBtn.addEventListener('touchstart', syncSlider);
+
   </script>
 </body>
 </html>
