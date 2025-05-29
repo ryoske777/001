@@ -5,9 +5,9 @@
   <title>미사일 피하기 게임</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    html, body { height: 100%; margin:0; padding:0; overflow: hidden; touch-action: none;}
-    body { background: #333; margin:0; position:relative; height:100vh; touch-action: none;}
-    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; touch-action: none;}
+    html, body { height: 100%; margin:0; padding:0; overflow: hidden; }
+    body { background: #333; margin:0; position:relative; height:100vh; }
+    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; }
     canvas { background: #fff; display: block; width: 100vw; height: 100vh; border-radius: 0; touch-action: none;}
     #result {
       position: absolute;
@@ -48,16 +48,12 @@
       left: 0; top: 0;
       width: 120px; height: 120px;
       z-index: 1000;
-      opacity: 0;
+      display: none;
       pointer-events: none;
+      opacity: 0.98;
       user-select: none;
       background: transparent;
       touch-action: none;
-      transition: opacity 0.07s;
-    }
-    #joystick.visible {
-      opacity: 0.98;
-      pointer-events: auto;
     }
     .joystick-bg {
       position: absolute; left:0; top:0;
@@ -108,10 +104,27 @@
     const restartDiv = document.getElementById('restart');
     const joystick = document.getElementById('joystick');
     const knob = joystick.querySelector('.joystick-knob');
+    const joybg = joystick.querySelector('.joystick-bg');
 
-    // 플레이어(공) 정보 (초기값 0 → 반드시 초기화에서 갱신)
+    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
+    function resizeCanvas() {
+      // 실제 픽셀 크기
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // 리셋
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 플레이어(공) 정보
     const player = {
-      x: 0, y: 0, r: 24, color: '#1976d2', speed: 4
+      x: 0, y: 0,
+      r: 24, color: '#1976d2', speed: 4
     };
 
     // 미사일 관리
@@ -138,56 +151,23 @@
     let joystickActive = false, knobX = 0, knobY = 0, joyDX = 0, joyDY = 0;
     let baseX=0, baseY=0, joyRadius=60, knobRadius=18;
 
-    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-      updatePlayerStats(true);
-    }
-
-    // 플레이어/미사일 좌표계 동기화 (강제 방어!)
-    function updatePlayerStats(forceCenter) {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
-      player.r = Math.max(w,h)/28 || 24;
-      player.speed = Math.max(w,h)/150 || 4;
-      if (
-        isNaN(player.x) || isNaN(player.y) || player.x <= 0 || player.y <= 0 ||
-        player.x < player.r || player.x > w - player.r ||
-        player.y < player.r || player.y > h - player.r ||
-        forceCenter
-      ) {
-        player.x = w/2;
-        player.y = h/2;
-      }
-    }
-
     // 터치패드: 어디든 터치하면 그 위치에 조이스틱 생성, 떼면 사라짐
     if(isMobile) {
       container.addEventListener('touchstart', function(ev) {
-        if (gameOver) return;
-        if (ev.touches.length > 1) return;
+        if (gameOver) return; // 게임 오버 시 동작 X
+        if (ev.touches.length > 1) return; // 멀티터치 방지
         const t = ev.touches[0];
-        joystick.classList.add('visible');
-        // 레이아웃이 항상 되어 있으므로, offsetWidth 바로 사용 가능
-        joyRadius = joystick.offsetWidth/2;
-        knobRadius = knob.offsetWidth/2;
         baseX = t.clientX;
         baseY = t.clientY;
+        joyRadius = joystick.offsetWidth/2;
+        knobRadius = knob.offsetWidth/2;
+        joystick.style.display = "block";
         joystick.style.left = (baseX-joyRadius) + "px";
         joystick.style.top  = (baseY-joyRadius) + "px";
         knob.style.left = (joyRadius - knobRadius) + "px";
         knob.style.top  = (joyRadius - knobRadius) + "px";
         joystickActive = true;
         joyDX = 0; joyDY = 0;
-        ev.preventDefault();
       }, {passive:false});
 
       container.addEventListener('touchmove', function(ev) {
@@ -212,8 +192,7 @@
       container.addEventListener('touchend', function(ev) {
         joystickActive = false;
         joyDX = 0; joyDY = 0;
-        joystick.classList.remove('visible');
-        ev.preventDefault();
+        joystick.style.display = "none";
       }, {passive:false});
     }
 
@@ -244,9 +223,20 @@
       return dist < (a.r + b.r);
     }
 
+    function updatePlayerStats() {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.max(w,h)/28;
+      player.speed = Math.max(w,h)/150;
+      if (player.x === 0 && player.y === 0) {
+        player.x = w / 2;
+        player.y = h / 2;
+      }
+    }
+
     function startGame() {
       resizeCanvas();
-      updatePlayerStats(true);
+      updatePlayerStats();
       const w = canvas.width / (window.devicePixelRatio||1);
       const h = canvas.height / (window.devicePixelRatio||1);
       player.x = w/2;
@@ -259,7 +249,7 @@
       restartDiv.style.display = 'none';
       missileInterval = 900;
       Object.keys(keys).forEach(k => keys[k] = false);
-      joystick.classList.remove('visible');
+      joystick.style.display = 'none';
       requestAnimationFrame(gameLoop);
     }
 
@@ -288,20 +278,10 @@
         if(len > 1) { dx /= len; dy /= len; }
         player.x += player.speed * dx;
         player.y += player.speed * dy;
-        // 경계 체크
         if (player.x - player.r < 0) player.x = player.r;
         if (player.x + player.r > w) player.x = w - player.r;
         if (player.y - player.r < 0) player.y = player.r;
         if (player.y + player.r > h) player.y = h - player.r;
-      }
-
-      // 방어: player.x, y, r이 정상값인지 체크
-      if (
-        isNaN(player.x) || isNaN(player.y) || isNaN(player.r) ||
-        player.x <= 0 || player.y <= 0 ||
-        player.r <= 0
-      ) {
-        updatePlayerStats(true);
       }
 
       // 플레이어 그리기
@@ -357,7 +337,7 @@
         resultDiv.textContent = survivedSec.toFixed(1) + ' Sec';
         resultDiv.style.display = 'block';
         restartDiv.style.display = 'block';
-        joystick.classList.remove('visible');
+        joystick.style.display = 'none';
         // 스페이스바 또는 터치로 재시작
         document.onkeydown = function(e) {
           if (e.code === "Space") {
@@ -377,7 +357,6 @@
           restartDiv.style.display = 'none';
           document.onkeydown = null;
           startGame();
-          ev.preventDefault();
         };
         return;
       }
@@ -387,7 +366,7 @@
     // 최초 시작
     function initialStart() {
       resizeCanvas();
-      updatePlayerStats(true);
+      updatePlayerStats();
       resultDiv.textContent = '';
       restartDiv.style.display = 'block';
       resultDiv.style.display = 'none';
@@ -410,7 +389,6 @@
         restartDiv.style.display = 'none';
         document.onkeydown = null;
         startGame();
-        ev.preventDefault();
       };
     }
 
@@ -419,15 +397,17 @@
 
     // 리사이즈 시 플레이어/미사일 좌표계 갱신
     window.addEventListener('resize', () => {
-      resizeCanvas();
-      updatePlayerStats();
       const w = canvas.width / (window.devicePixelRatio||1);
       const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.max(w,h)/28;
+      player.speed = Math.max(w,h)/150;
+      // 플레이어 화면 벗어나지 않게
       if (player.x < player.r) player.x = player.r;
       if (player.x > w - player.r) player.x = w - player.r;
       if (player.y < player.r) player.y = player.r;
       if (player.y > h - player.r) player.y = h - player.r;
     });
+
   </script>
 </body>
 </html>
