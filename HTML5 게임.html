@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>미사일 피하기 게임</title>
+  <style>
+    body { background: #333; margin:0; }
+    canvas { background: #fff; display: block; margin: 40px auto 0; border-radius: 16px; }
+    #result {
+      position: absolute;
+      left: 50%;
+      top: 210px;
+      transform: translate(-50%, 0);
+      font-size: 44px;
+      color: #d32f2f;
+      font-family: 'Consolas', 'Arial';
+      font-weight: bold;
+      background: rgba(255,255,255,0.85);
+      padding: 18px 40px 8px 40px;
+      border-radius: 18px;
+      display: none;
+      z-index: 2;
+      text-align: center;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.15);
+      min-width: 280px;
+    }
+    #restart {
+      position: absolute;
+      left: 50%;
+      top: 290px;
+      transform: translate(-50%, 0);
+      font-size: 20px;
+      color: #555;
+      font-family: 'Consolas', 'Arial';
+      background: rgba(255,255,255,0.90);
+      padding: 7px 18px;
+      border-radius: 12px;
+      display: none;
+      z-index: 2;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+    }
+  </style>
+</head>
+<body>
+  <div id="result"></div>
+  <div id="restart">재시작은 스페이스바를 눌러주세요.</div>
+  <canvas id="game" width="600" height="400"></canvas>
+  <script>
+    // 기본 세팅
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const resultDiv = document.getElementById('result');
+    const restartDiv = document.getElementById('restart');
+    let startTime, survivedSec = 0;
+    let gameOver = false;
+
+    // 플레이어(공) 정보
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      r: 18,
+      color: '#1976d2',
+      speed: 4
+    };
+
+    // 키 입력
+    const keys = {ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false};
+    document.addEventListener('keydown', e => { if(e.key in keys) keys[e.key] = true; });
+    document.addEventListener('keyup', e => { if(e.key in keys) keys[e.key] = false; });
+
+    // 미사일 설정
+    const missiles = [];
+    function spawnMissile() {
+      // 사방 랜덤 출현
+      const edge = Math.floor(Math.random() * 4); // 0=상, 1=하, 2=좌, 3=우
+      let x, y, dx, dy;
+      const missileSpeed = 2.7 + Math.random() * 1.4;
+      const mSize = 12 + Math.random() * 8;
+      if (edge === 0) { // 위
+        x = Math.random() * canvas.width;
+        y = 0;
+      } else if (edge === 1) { // 아래
+        x = Math.random() * canvas.width;
+        y = canvas.height;
+      } else if (edge === 2) { // 왼쪽
+        x = 0;
+        y = Math.random() * canvas.height;
+      } else { // 오른쪽
+        x = canvas.width;
+        y = Math.random() * canvas.height;
+      }
+      // 방향: 플레이어를 향해
+      const angle = Math.atan2(player.y - y, player.x - x);
+      dx = Math.cos(angle) * missileSpeed;
+      dy = Math.sin(angle) * missileSpeed;
+      missiles.push({ x, y, dx, dy, r: mSize, color: '#f44336' });
+    }
+
+    // 일정 시간마다 미사일 추가
+    let missileInterval = 900;
+    let lastMissileTime = 0;
+
+    // 충돌 체크
+    function checkCollision(a, b) {
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      return dist < (a.r + b.r);
+    }
+
+    // 게임 초기화
+    function startGame() {
+      player.x = canvas.width / 2;
+      player.y = canvas.height / 2;
+      missiles.length = 0;
+      gameOver = false;
+      startTime = Date.now();
+      survivedSec = 0;
+      resultDiv.style.display = 'none';
+      restartDiv.style.display = 'none';
+      missileInterval = 900;
+      // 키 초기화
+      Object.keys(keys).forEach(k => keys[k] = false);
+      requestAnimationFrame(gameLoop);
+    }
+
+    // 게임 루프
+    function gameLoop() {
+      // 타이머
+      if (!gameOver) {
+        survivedSec = (Date.now() - startTime) / 1000;
+      }
+
+      // 배경
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 플레이어 이동
+      if (keys.ArrowLeft && player.x - player.r > 0) player.x -= player.speed;
+      if (keys.ArrowRight && player.x + player.r < canvas.width) player.x += player.speed;
+      if (keys.ArrowUp && player.y - player.r > 0) player.y -= player.speed;
+      if (keys.ArrowDown && player.y + player.r < canvas.height) player.y += player.speed;
+
+      // 플레이어 그리기
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fillStyle = player.color;
+      ctx.shadowColor = '#90caf9';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.closePath();
+      ctx.shadowBlur = 0;
+
+      // 미사일 그리기 및 이동
+      for (let i = missiles.length - 1; i >= 0; i--) {
+        const m = missiles[i];
+        m.x += m.dx;
+        m.y += m.dy;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        ctx.fillStyle = m.color;
+        ctx.fill();
+        ctx.closePath();
+
+        // 플레이어와 충돌 체크
+        if (checkCollision(player, m)) {
+          gameOver = true;
+        }
+
+        // 화면 벗어나면 삭제
+        if (
+          m.x < -40 || m.x > canvas.width + 40 ||
+          m.y < -40 || m.y > canvas.height + 40
+        ) {
+          missiles.splice(i, 1);
+        }
+      }
+
+      // 미사일 추가 (점점 빨라짐)
+      const now = Date.now();
+      if (now - lastMissileTime > missileInterval && !gameOver) {
+        spawnMissile();
+        lastMissileTime = now;
+        if (missileInterval > 450) missileInterval -= 8; // 점점 빨리
+      }
+
+      // 생존 시간 캔버스 내에 표시
+      ctx.save();
+      ctx.font = "bold 20px Consolas, Arial";
+      ctx.fillStyle = "#1976d2";
+      ctx.textAlign = "right";
+      ctx.fillText(survivedSec.toFixed(1) + " Sec", canvas.width - 18, 32);
+      ctx.restore();
+
+      // 게임 오버 처리
+      if (gameOver) {
+        resultDiv.textContent = survivedSec.toFixed(1) + ' Sec';
+        resultDiv.style.display = 'block';
+        restartDiv.style.display = 'block';
+
+        // 스페이스바로만 재시작
+        document.onkeydown = function(e) {
+          if (e.code === "Space") {
+            document.onkeydown = null;
+            startGame();
+          }
+        };
+        return;
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // 최초 시작(스페이스바)
+    resultDiv.textContent = '';
+    restartDiv.textContent = '스페이스바를 눌러 시작하세요.';
+    resultDiv.style.display = 'none';
+    restartDiv.style.display = 'block';
+
+    document.onkeydown = function(e) {
+      if (e.code === "Space") {
+        document.onkeydown = null;
+        restartDiv.style.display = 'none';
+        startGame();
+      }
+    };
+  </script>
+</body>
+</html>
