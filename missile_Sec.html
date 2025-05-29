@@ -105,24 +105,9 @@
     const joystick = document.getElementById('joystick');
     const knob = joystick.querySelector('.joystick-knob');
 
-    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    // 플레이어(공) 정보
+    // 플레이어(공) 정보 (초기값 0 → 반드시 초기화에서 갱신)
     const player = {
-      x: 0, y: 0,
-      r: 24, color: '#1976d2', speed: 4
+      x: 0, y: 0, r: 24, color: '#1976d2', speed: 4
     };
 
     // 미사일 관리
@@ -149,11 +134,43 @@
     let joystickActive = false, knobX = 0, knobY = 0, joyDX = 0, joyDY = 0;
     let baseX=0, baseY=0, joyRadius=60, knobRadius=18;
 
+    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      // 반드시 플레이어 위치, 반지름 등 재설정
+      updatePlayerStats(true);
+    }
+
+    // 플레이어/미사일 좌표계 동기화 (강제 방어!)
+    function updatePlayerStats(forceCenter) {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.max(w,h)/28 || 24;
+      player.speed = Math.max(w,h)/150 || 4;
+      if (
+        isNaN(player.x) || isNaN(player.y) || player.x <= 0 || player.y <= 0 ||
+        player.x < player.r || player.x > w - player.r ||
+        player.y < player.r || player.y > h - player.r ||
+        forceCenter
+      ) {
+        player.x = w/2;
+        player.y = h/2;
+      }
+    }
+
     // 터치패드: 어디든 터치하면 그 위치에 조이스틱 생성, 떼면 사라짐
     if(isMobile) {
       container.addEventListener('touchstart', function(ev) {
-        if (gameOver) return; // 게임 오버 시 동작 X
-        if (ev.touches.length > 1) return; // 멀티터치 방지
+        if (gameOver) return;
+        if (ev.touches.length > 1) return;
         const t = ev.touches[0];
         baseX = t.clientX;
         baseY = t.clientY;
@@ -223,20 +240,9 @@
       return dist < (a.r + b.r);
     }
 
-    function updatePlayerStats() {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
-      player.r = Math.max(w,h)/28;
-      player.speed = Math.max(w,h)/150;
-      if (player.x === 0 && player.y === 0) {
-        player.x = w / 2;
-        player.y = h / 2;
-      }
-    }
-
     function startGame() {
-      resizeCanvas();
-      updatePlayerStats();
+      resizeCanvas(); // 반드시 먼저
+      updatePlayerStats(true); // 반드시 먼저
       const w = canvas.width / (window.devicePixelRatio||1);
       const h = canvas.height / (window.devicePixelRatio||1);
       player.x = w/2;
@@ -278,10 +284,20 @@
         if(len > 1) { dx /= len; dy /= len; }
         player.x += player.speed * dx;
         player.y += player.speed * dy;
+        // 경계 체크
         if (player.x - player.r < 0) player.x = player.r;
         if (player.x + player.r > w) player.x = w - player.r;
         if (player.y - player.r < 0) player.y = player.r;
         if (player.y + player.r > h) player.y = h - player.r;
+      }
+
+      // 방어: player.x, y, r이 정상값인지 체크
+      if (
+        isNaN(player.x) || isNaN(player.y) || isNaN(player.r) ||
+        player.x <= 0 || player.y <= 0 ||
+        player.r <= 0
+      ) {
+        updatePlayerStats(true);
       }
 
       // 플레이어 그리기
@@ -367,7 +383,7 @@
     // 최초 시작
     function initialStart() {
       resizeCanvas();
-      updatePlayerStats();
+      updatePlayerStats(true);
       resultDiv.textContent = '';
       restartDiv.style.display = 'block';
       resultDiv.style.display = 'none';
@@ -399,10 +415,10 @@
 
     // 리사이즈 시 플레이어/미사일 좌표계 갱신
     window.addEventListener('resize', () => {
+      resizeCanvas();
+      updatePlayerStats();
       const w = canvas.width / (window.devicePixelRatio||1);
       const h = canvas.height / (window.devicePixelRatio||1);
-      player.r = Math.max(w,h)/28;
-      player.speed = Math.max(w,h)/150;
       if (player.x < player.r) player.x = player.r;
       if (player.x > w - player.r) player.x = w - player.r;
       if (player.y < player.r) player.y = player.r;
