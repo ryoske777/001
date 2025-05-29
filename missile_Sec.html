@@ -48,12 +48,16 @@
       left: 0; top: 0;
       width: 120px; height: 120px;
       z-index: 1000;
-      display: none;
+      opacity: 0;
       pointer-events: none;
-      opacity: 0.98;
       user-select: none;
       background: transparent;
       touch-action: none;
+      transition: opacity 0.07s;
+    }
+    #joystick.visible {
+      opacity: 0.98;
+      pointer-events: auto;
     }
     .joystick-bg {
       position: absolute; left:0; top:0;
@@ -145,7 +149,6 @@
       canvas.style.height = h + 'px';
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      // 반드시 플레이어 위치, 반지름 등 재설정
       updatePlayerStats(true);
     }
 
@@ -172,11 +175,12 @@
         if (gameOver) return;
         if (ev.touches.length > 1) return;
         const t = ev.touches[0];
-        baseX = t.clientX;
-        baseY = t.clientY;
+        joystick.classList.add('visible');
+        // 레이아웃이 항상 되어 있으므로, offsetWidth 바로 사용 가능
         joyRadius = joystick.offsetWidth/2;
         knobRadius = knob.offsetWidth/2;
-        joystick.style.display = "block";
+        baseX = t.clientX;
+        baseY = t.clientY;
         joystick.style.left = (baseX-joyRadius) + "px";
         joystick.style.top  = (baseY-joyRadius) + "px";
         knob.style.left = (joyRadius - knobRadius) + "px";
@@ -208,7 +212,7 @@
       container.addEventListener('touchend', function(ev) {
         joystickActive = false;
         joyDX = 0; joyDY = 0;
-        joystick.style.display = "none";
+        joystick.classList.remove('visible');
         ev.preventDefault();
       }, {passive:false});
     }
@@ -241,8 +245,8 @@
     }
 
     function startGame() {
-      resizeCanvas(); // 반드시 먼저
-      updatePlayerStats(true); // 반드시 먼저
+      resizeCanvas();
+      updatePlayerStats(true);
       const w = canvas.width / (window.devicePixelRatio||1);
       const h = canvas.height / (window.devicePixelRatio||1);
       player.x = w/2;
@@ -255,7 +259,7 @@
       restartDiv.style.display = 'none';
       missileInterval = 900;
       Object.keys(keys).forEach(k => keys[k] = false);
-      joystick.style.display = 'none';
+      joystick.classList.remove('visible');
       requestAnimationFrame(gameLoop);
     }
 
@@ -353,7 +357,7 @@
         resultDiv.textContent = survivedSec.toFixed(1) + ' Sec';
         resultDiv.style.display = 'block';
         restartDiv.style.display = 'block';
-        joystick.style.display = 'none';
+        joystick.classList.remove('visible');
         // 스페이스바 또는 터치로 재시작
         document.onkeydown = function(e) {
           if (e.code === "Space") {
