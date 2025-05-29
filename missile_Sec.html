@@ -2,83 +2,83 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>미사일 피하기 게임</title>
+  <title>미사일 피하기 게임(모바일)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    html, body { height: 100%; margin:0; padding:0; overflow: hidden; }
-    body { background: #333; margin:0; position:relative; height:100vh; }
-    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; }
+    html, body { height: 100%; margin:0; padding:0; overflow: hidden; touch-action: none;}
+    body { background: #333; margin:0; position:relative; height:100vh; touch-action: none;}
+    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; touch-action: none;}
     canvas { background: #fff; display: block; width: 100vw; height: 100vh; border-radius: 0; touch-action: none;}
     #result {
       position: absolute;
-      left: 50%; top: 35%;
+      left: 50%; top: 36%;
       transform: translate(-50%, -50%);
-      font-size: 44px;
+      font-size: 7vw;
       color: #d32f2f;
       font-family: 'Consolas', 'Arial';
       font-weight: bold;
-      background: rgba(255,255,255,0.85);
-      padding: 18px 40px 8px 40px;
-      border-radius: 18px;
+      background: rgba(255,255,255,0.88);
+      padding: 3vw 7vw 1vw 7vw;
+      border-radius: 5vw;
       display: none;
       z-index: 2;
       text-align: center;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.15);
-      min-width: 280px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.13);
+      min-width: 36vw;
       pointer-events:none;
     }
     #restart {
       position: absolute;
-      left: 50%; top: 60%;
+      left: 50%; top: 61%;
       transform: translate(-50%, -50%);
-      font-size: 22px;
+      font-size: 4.3vw;
       color: #555;
       font-family: 'Consolas', 'Arial';
-      background: rgba(255,255,255,0.95);
-      padding: 16px 30px;
-      border-radius: 16px;
+      background: rgba(255,255,255,0.93);
+      padding: 2.6vw 7vw;
+      border-radius: 4vw;
       display: none;
       z-index: 3;
       text-align: center;
       box-shadow: 0 2px 10px rgba(0,0,0,0.10);
       cursor:pointer;
+      user-select: none;
     }
     #joystick {
       position: fixed;
       left: 0; top: 0;
-      width: 120px; height: 120px;
+      width: 92px; height: 92px;
       z-index: 1000;
-      display: none;
+      opacity: 0;
       pointer-events: none;
-      opacity: 0.98;
       user-select: none;
       background: transparent;
       touch-action: none;
+      transition: opacity 0.09s;
+      display: block; /* 항상 block */
+    }
+    #joystick.visible {
+      opacity: 0.98;
+      pointer-events: auto;
     }
     .joystick-bg {
       position: absolute; left:0; top:0;
-      width: 120px; height: 120px;
+      width: 92px; height: 92px;
       border-radius: 50%;
       background: #ddd;
-      opacity:0.40;
-      border: 3px solid #bbb;
+      opacity:0.35;
+      border: 2.5px solid #bbb;
       pointer-events: none;
     }
     .joystick-knob {
-      position: absolute; left:48px; top:48px;
-      width: 36px; height:36px;
+      position: absolute; left:31px; top:31px;
+      width: 30px; height:30px;
       background:#1976d2;
       border-radius: 50%;
-      box-shadow: 0 2px 8px #2223;
+      box-shadow: 0 2px 8px #2222;
       border: 2px solid #1976d2;
       touch-action: none;
       pointer-events: none;
-    }
-    @media (max-width:700px) {
-      #result { font-size: 6vw; min-width: 38vw; }
-      #restart { font-size: 3vw; padding: 4vw 8vw;}
-      #joystick, .joystick-bg { width:88px; height:88px;}
-      .joystick-knob { width:28px; height:28px; left:30px; top:30px;}
     }
   </style>
 </head>
@@ -86,16 +86,13 @@
   <div id="game-container">
     <canvas id="game"></canvas>
     <div id="result"></div>
-    <div id="restart">스페이스바 또는 터치해서<br>재시작하세요.</div>
+    <div id="restart">터치해서<br>시작하세요.</div>
     <div id="joystick">
       <div class="joystick-bg"></div>
       <div class="joystick-knob"></div>
     </div>
   </div>
   <script>
-    // 환경 변수
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
     // 캔버스/컨텍스트
     const container = document.getElementById('game-container');
     const canvas = document.getElementById('game');
@@ -105,70 +102,79 @@
     const joystick = document.getElementById('joystick');
     const knob = joystick.querySelector('.joystick-knob');
 
-    // 논리 크기 (고정)
-    function getGameWidth() { return window.innerWidth; }
-    function getGameHeight() { return window.innerHeight; }
-
-    function resizeCanvas() {
-      canvas.width = getGameWidth();
-      canvas.height = getGameHeight();
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    // 플레이어(공) 정보
+    // 플레이어(공) 정보 (항상 중앙으로 복구)
     const player = {
-      x: 0, y: 0, r: 24, color: '#1976d2', speed: 4
+      x: 0, y: 0, r: 30, color: '#1976d2', speed: 5
     };
 
     // 미사일 관리
     const missiles = [];
 
-    // 키 입력
-    const keys = {ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false};
-    document.addEventListener('keydown', e => { 
-      if(e.key in keys) {
-        keys[e.key] = true;
-        e.preventDefault();
-      }
-      if (e.code === "Space") e.preventDefault();
-    }, {passive:false});
-    document.addEventListener('keyup', e => { 
-      if(e.key in keys) {
-        keys[e.key] = false;
-        e.preventDefault();
-      }
-      if (e.code === "Space") e.preventDefault();
-    }, {passive:false});
-
     // 조이스틱 상태
     let joystickActive = false, joyDX = 0, joyDY = 0;
-    let baseX=0, baseY=0, joyRadius=60, knobRadius=18;
+    let baseX=0, baseY=0, joyRadius=46, knobRadius=15;
+    let layoutReady = true;
 
-    // 터치패드: 어디든 터치하면 그 위치에 조이스틱 생성, 떼면 사라짐
-    if(isMobile) {
-      container.addEventListener('touchstart', function(ev) {
-        if (gameOver) return;
-        if (ev.touches.length > 1) return;
-        const t = ev.touches[0];
-        baseX = t.clientX;
-        baseY = t.clientY;
+    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      updatePlayerStats(true);
+    }
+
+    // 플레이어/미사일 좌표계 동기화 (항상 강제 중앙)
+    function updatePlayerStats(forceCenter) {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.round(Math.max(w,h)/19.5) || 30;
+      player.speed = Math.max(w,h)/110 || 5;
+      if (
+        isNaN(player.x) || isNaN(player.y) || player.x <= 0 || player.y <= 0 ||
+        player.x < player.r || player.x > w - player.r ||
+        player.y < player.r || player.y > h - player.r ||
+        forceCenter
+      ) {
+        player.x = w/2;
+        player.y = h/2;
+      }
+    }
+
+    // 터치패드: 항상 block, opacity 조절로 표시 (레이아웃 문제 방지)
+    container.addEventListener('touchstart', function(ev) {
+      if (gameOver) return;
+      if (ev.touches.length > 1) return;
+      const t = ev.touches[0];
+      joystick.classList.add('visible');
+      // requestAnimationFrame으로 layout 완성 후 위치 잡기
+      requestAnimationFrame(() => {
         joyRadius = joystick.offsetWidth/2;
         knobRadius = knob.offsetWidth/2;
-        joystick.style.display = "block";
+        baseX = t.clientX;
+        baseY = t.clientY;
         joystick.style.left = (baseX-joyRadius) + "px";
         joystick.style.top  = (baseY-joyRadius) + "px";
         knob.style.left = (joyRadius - knobRadius) + "px";
         knob.style.top  = (joyRadius - knobRadius) + "px";
         joystickActive = true;
         joyDX = 0; joyDY = 0;
-      }, {passive:false});
+      });
+      ev.preventDefault();
+    }, {passive:false});
 
-      container.addEventListener('touchmove', function(ev) {
-        if(!joystickActive) return;
-        if (ev.touches.length === 0) return;
-        const t = ev.touches[0];
-        let dx = t.clientX - baseX;
-        let dy = t.clientY - baseY;
+    container.addEventListener('touchmove', function(ev) {
+      if(!joystickActive) return;
+      if (ev.touches.length === 0) return;
+      const t = ev.touches[0];
+      let dx = t.clientX - baseX;
+      let dy = t.clientY - baseY;
+      requestAnimationFrame(() => {
         let dist = Math.sqrt(dx*dx + dy*dy);
         let maxDist = joyRadius - knobRadius;
         if(dist > maxDist) {
@@ -179,24 +185,25 @@
         knob.style.top  = (joyRadius + dy - knobRadius) + "px";
         joyDX = dx / maxDist;
         joyDY = dy / maxDist;
-        ev.preventDefault();
-      }, {passive:false});
+      });
+      ev.preventDefault();
+    }, {passive:false});
 
-      container.addEventListener('touchend', function(ev) {
-        joystickActive = false;
-        joyDX = 0; joyDY = 0;
-        joystick.style.display = "none";
-      }, {passive:false});
-    }
+    container.addEventListener('touchend', function(ev) {
+      joystickActive = false;
+      joyDX = 0; joyDY = 0;
+      joystick.classList.remove('visible');
+      ev.preventDefault();
+    }, {passive:false});
 
     // 미사일 생성
     function spawnMissile() {
-      const w = getGameWidth();
-      const h = getGameHeight();
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
       const edge = Math.floor(Math.random() * 4);
       let x, y, dx, dy;
-      const missileSpeed = Math.max(w,h)/220 + Math.random() * 1.5;
-      const mSize = Math.max(w,h)/38 + Math.random() * 8;
+      const missileSpeed = Math.max(w,h)/160 + Math.random() * 1.5;
+      const mSize = Math.max(w,h)/28 + Math.random() * 8;
       if (edge === 0) { x = Math.random() * w; y = 0; }
       else if (edge === 1) { x = Math.random() * w; y = h; }
       else if (edge === 2) { x = 0; y = Math.random() * h; }
@@ -216,22 +223,11 @@
       return dist < (a.r + b.r);
     }
 
-    function updatePlayerStats() {
-      const w = getGameWidth();
-      const h = getGameHeight();
-      player.r = Math.max(w,h)/28;
-      player.speed = Math.max(w,h)/150;
-      if (player.x === 0 && player.y === 0) {
-        player.x = w / 2;
-        player.y = h / 2;
-      }
-    }
-
     function startGame() {
       resizeCanvas();
-      updatePlayerStats();
-      const w = getGameWidth();
-      const h = getGameHeight();
+      updatePlayerStats(true);
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
       player.x = w/2;
       player.y = h/2;
       missiles.length = 0;
@@ -241,40 +237,41 @@
       resultDiv.style.display = 'none';
       restartDiv.style.display = 'none';
       missileInterval = 900;
-      Object.keys(keys).forEach(k => keys[k] = false);
-      joystick.style.display = 'none';
+      joystick.classList.remove('visible');
       requestAnimationFrame(gameLoop);
     }
 
     function gameLoop() {
-      const w = getGameWidth();
-      const h = getGameHeight();
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
       updatePlayerStats();
       if (!gameOver) {
         survivedSec = (Date.now() - startTime) / 1000;
       }
       ctx.clearRect(0, 0, w, h);
 
-      // PC 이동
-      let dx = 0, dy = 0;
-      if (keys.ArrowLeft) dx -= 1;
-      if (keys.ArrowRight) dx += 1;
-      if (keys.ArrowUp) dy -= 1;
-      if (keys.ArrowDown) dy += 1;
-      // 모바일 조이스틱 이동값 즉각 반영
-      if (joyDX !== 0 || joyDY !== 0) {
-        dx = joyDX;
-        dy = joyDY;
-      }
+      // 조이스틱 이동값 즉각 반영
+      let dx = joyDX;
+      let dy = joyDY;
       if (dx !== 0 || dy !== 0) {
         let len = Math.sqrt(dx*dx + dy*dy);
         if(len > 1) { dx /= len; dy /= len; }
         player.x += player.speed * dx;
         player.y += player.speed * dy;
+        // 경계 체크
         if (player.x - player.r < 0) player.x = player.r;
         if (player.x + player.r > w) player.x = w - player.r;
         if (player.y - player.r < 0) player.y = player.r;
         if (player.y + player.r > h) player.y = h - player.r;
+      }
+
+      // 방어: player.x, y, r이 정상값인지 체크
+      if (
+        isNaN(player.x) || isNaN(player.y) || isNaN(player.r) ||
+        player.x <= 0 || player.y <= 0 ||
+        player.r <= 0
+      ) {
+        updatePlayerStats(true);
       }
 
       // 플레이어 그리기
@@ -319,10 +316,10 @@
 
       // 생존 시간 표시
       ctx.save();
-      ctx.font = "bold " + Math.round(w/30) + "px Consolas, Arial";
+      ctx.font = "bold " + Math.round(w/18) + "px Consolas, Arial";
       ctx.fillStyle = "#1976d2";
       ctx.textAlign = "right";
-      ctx.fillText(survivedSec.toFixed(1) + " Sec", w - 18, 32);
+      ctx.fillText(survivedSec.toFixed(1) + " Sec", w - 18, 42);
       ctx.restore();
 
       // 게임 오버 처리
@@ -330,26 +327,13 @@
         resultDiv.textContent = survivedSec.toFixed(1) + ' Sec';
         resultDiv.style.display = 'block';
         restartDiv.style.display = 'block';
-        joystick.style.display = 'none';
-        // 스페이스바 또는 터치로 재시작
-        document.onkeydown = function(e) {
-          if (e.code === "Space") {
-            document.onkeydown = null;
-            restartDiv.style.display = 'none';
-            startGame();
-          }
-          if (e.code === "Space") e.preventDefault();
-        };
-        restartDiv.onclick = function() {
-          restartDiv.style.display = 'none';
-          document.onkeydown = null;
-          startGame();
-        };
+        joystick.classList.remove('visible');
+        // 터치로 재시작
         container.ontouchstart = function(ev) {
-          if (ev.touches && ev.touches.length > 1) return;
+          if (ev.touches.length > 1) return;
           restartDiv.style.display = 'none';
-          document.onkeydown = null;
           startGame();
+          ev.preventDefault();
         };
         return;
       }
@@ -359,29 +343,16 @@
     // 최초 시작
     function initialStart() {
       resizeCanvas();
-      updatePlayerStats();
+      updatePlayerStats(true);
       resultDiv.textContent = '';
       restartDiv.style.display = 'block';
       resultDiv.style.display = 'none';
-      restartDiv.innerHTML = '스페이스바 또는 터치해서<br>시작하세요.';
-      document.onkeydown = function(e) {
-        if (e.code === "Space") {
-          document.onkeydown = null;
-          restartDiv.style.display = 'none';
-          startGame();
-        }
-        if (e.code === "Space") e.preventDefault();
-      };
-      restartDiv.onclick = function() {
-        restartDiv.style.display = 'none';
-        document.onkeydown = null;
-        startGame();
-      };
+      restartDiv.innerHTML = '터치해서<br>시작하세요.';
       container.ontouchstart = function(ev) {
-        if (ev.touches && ev.touches.length > 1) return;
+        if (ev.touches.length > 1) return;
         restartDiv.style.display = 'none';
-        document.onkeydown = null;
         startGame();
+        ev.preventDefault();
       };
     }
 
@@ -390,16 +361,15 @@
 
     // 리사이즈 시 플레이어/미사일 좌표계 갱신
     window.addEventListener('resize', () => {
-      const w = getGameWidth();
-      const h = getGameHeight();
-      player.r = Math.max(w,h)/28;
-      player.speed = Math.max(w,h)/150;
+      resizeCanvas();
+      updatePlayerStats();
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
       if (player.x < player.r) player.x = player.r;
       if (player.x > w - player.r) player.x = w - player.r;
       if (player.y < player.r) player.y = player.r;
       if (player.y > h - player.r) player.y = h - player.r;
     });
-
   </script>
 </body>
 </html>
