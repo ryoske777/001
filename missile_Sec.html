@@ -104,27 +104,20 @@
     const restartDiv = document.getElementById('restart');
     const joystick = document.getElementById('joystick');
     const knob = joystick.querySelector('.joystick-knob');
-    const joybg = joystick.querySelector('.joystick-bg');
 
-    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
+    // 논리 크기 (고정)
+    function getGameWidth() { return window.innerWidth; }
+    function getGameHeight() { return window.innerHeight; }
+
     function resizeCanvas() {
-      // 실제 픽셀 크기
-      const dpr = window.devicePixelRatio || 1;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // 리셋
-      ctx.scale(dpr, dpr);
+      canvas.width = getGameWidth();
+      canvas.height = getGameHeight();
     }
     window.addEventListener('resize', resizeCanvas);
 
     // 플레이어(공) 정보
     const player = {
-      x: 0, y: 0,
-      r: 24, color: '#1976d2', speed: 4
+      x: 0, y: 0, r: 24, color: '#1976d2', speed: 4
     };
 
     // 미사일 관리
@@ -148,14 +141,14 @@
     }, {passive:false});
 
     // 조이스틱 상태
-    let joystickActive = false, knobX = 0, knobY = 0, joyDX = 0, joyDY = 0;
+    let joystickActive = false, joyDX = 0, joyDY = 0;
     let baseX=0, baseY=0, joyRadius=60, knobRadius=18;
 
     // 터치패드: 어디든 터치하면 그 위치에 조이스틱 생성, 떼면 사라짐
     if(isMobile) {
       container.addEventListener('touchstart', function(ev) {
-        if (gameOver) return; // 게임 오버 시 동작 X
-        if (ev.touches.length > 1) return; // 멀티터치 방지
+        if (gameOver) return;
+        if (ev.touches.length > 1) return;
         const t = ev.touches[0];
         baseX = t.clientX;
         baseY = t.clientY;
@@ -198,8 +191,8 @@
 
     // 미사일 생성
     function spawnMissile() {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
+      const w = getGameWidth();
+      const h = getGameHeight();
       const edge = Math.floor(Math.random() * 4);
       let x, y, dx, dy;
       const missileSpeed = Math.max(w,h)/220 + Math.random() * 1.5;
@@ -224,8 +217,8 @@
     }
 
     function updatePlayerStats() {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
+      const w = getGameWidth();
+      const h = getGameHeight();
       player.r = Math.max(w,h)/28;
       player.speed = Math.max(w,h)/150;
       if (player.x === 0 && player.y === 0) {
@@ -237,8 +230,8 @@
     function startGame() {
       resizeCanvas();
       updatePlayerStats();
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
+      const w = getGameWidth();
+      const h = getGameHeight();
       player.x = w/2;
       player.y = h/2;
       missiles.length = 0;
@@ -254,8 +247,8 @@
     }
 
     function gameLoop() {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
+      const w = getGameWidth();
+      const h = getGameHeight();
       updatePlayerStats();
       if (!gameOver) {
         survivedSec = (Date.now() - startTime) / 1000;
@@ -353,7 +346,7 @@
           startGame();
         };
         container.ontouchstart = function(ev) {
-          if (ev.touches.length > 1) return;
+          if (ev.touches && ev.touches.length > 1) return;
           restartDiv.style.display = 'none';
           document.onkeydown = null;
           startGame();
@@ -385,7 +378,7 @@
         startGame();
       };
       container.ontouchstart = function(ev) {
-        if (ev.touches.length > 1) return;
+        if (ev.touches && ev.touches.length > 1) return;
         restartDiv.style.display = 'none';
         document.onkeydown = null;
         startGame();
@@ -397,11 +390,10 @@
 
     // 리사이즈 시 플레이어/미사일 좌표계 갱신
     window.addEventListener('resize', () => {
-      const w = canvas.width / (window.devicePixelRatio||1);
-      const h = canvas.height / (window.devicePixelRatio||1);
+      const w = getGameWidth();
+      const h = getGameHeight();
       player.r = Math.max(w,h)/28;
       player.speed = Math.max(w,h)/150;
-      // 플레이어 화면 벗어나지 않게
       if (player.x < player.r) player.x = player.r;
       if (player.x > w - player.r) player.x = w - player.r;
       if (player.y < player.r) player.y = player.r;
