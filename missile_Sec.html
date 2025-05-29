@@ -106,22 +106,29 @@
     const knob = joystick.querySelector('.joystick-knob');
     const joybg = joystick.querySelector('.joystick-bg');
 
-    // 사이즈 자동 조정
+    // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      // 실제 픽셀 크기
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // 리셋
+      ctx.scale(dpr, dpr);
     }
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
 
     // 플레이어(공) 정보
     const player = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      r: Math.max(canvas.height,canvas.width)/28,
-      color: '#1976d2',
-      speed: Math.max(canvas.height,canvas.width)/150
+      x: 0, y: 0,
+      r: 24, color: '#1976d2', speed: 4
     };
+
+    // 미사일 관리
+    const missiles = [];
 
     // 키 입력
     const keys = {ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false};
@@ -144,20 +151,19 @@
     let joystickActive = false, knobX = 0, knobY = 0, joyDX = 0, joyDY = 0;
     let baseX=0, baseY=0, joyRadius=60, knobRadius=18;
 
-    // 터치패드 : 화면 어디든 터치시, 그 자리에 조이스틱 표시
+    // 터치패드: 어디든 터치하면 그 위치에 조이스틱 생성, 떼면 사라짐
     if(isMobile) {
       container.addEventListener('touchstart', function(ev) {
         if (gameOver) return; // 게임 오버 시 동작 X
+        if (ev.touches.length > 1) return; // 멀티터치 방지
         const t = ev.touches[0];
         baseX = t.clientX;
         baseY = t.clientY;
         joyRadius = joystick.offsetWidth/2;
         knobRadius = knob.offsetWidth/2;
-        // 조이스틱 위치 조정
         joystick.style.display = "block";
         joystick.style.left = (baseX-joyRadius) + "px";
         joystick.style.top  = (baseY-joyRadius) + "px";
-        // 초기 knob 중앙
         knob.style.left = (joyRadius - knobRadius) + "px";
         knob.style.top  = (joyRadius - knobRadius) + "px";
         joystickActive = true;
@@ -166,6 +172,7 @@
 
       container.addEventListener('touchmove', function(ev) {
         if(!joystickActive) return;
+        if (ev.touches.length === 0) return;
         const t = ev.touches[0];
         let dx = t.clientX - baseX;
         let dy = t.clientY - baseY;
@@ -189,17 +196,18 @@
       }, {passive:false});
     }
 
-    // 미사일 설정
-    const missiles = [];
+    // 미사일 생성
     function spawnMissile() {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
       const edge = Math.floor(Math.random() * 4);
       let x, y, dx, dy;
-      const missileSpeed = Math.max(canvas.height,canvas.width)/220 + Math.random() * 1.5;
-      const mSize = Math.max(canvas.height,canvas.width)/38 + Math.random() * 8;
-      if (edge === 0) { x = Math.random() * canvas.width; y = 0; }
-      else if (edge === 1) { x = Math.random() * canvas.width; y = canvas.height; }
-      else if (edge === 2) { x = 0; y = Math.random() * canvas.height; }
-      else { x = canvas.width; y = Math.random() * canvas.height; }
+      const missileSpeed = Math.max(w,h)/220 + Math.random() * 1.5;
+      const mSize = Math.max(w,h)/38 + Math.random() * 8;
+      if (edge === 0) { x = Math.random() * w; y = 0; }
+      else if (edge === 1) { x = Math.random() * w; y = h; }
+      else if (edge === 2) { x = 0; y = Math.random() * h; }
+      else { x = w; y = Math.random() * h; }
       const angle = Math.atan2(player.y - y, player.x - x);
       dx = Math.cos(angle) * missileSpeed;
       dy = Math.sin(angle) * missileSpeed;
@@ -215,12 +223,24 @@
       return dist < (a.r + b.r);
     }
 
+    function updatePlayerStats() {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.max(w,h)/28;
+      player.speed = Math.max(w,h)/150;
+      if (player.x === 0 && player.y === 0) {
+        player.x = w / 2;
+        player.y = h / 2;
+      }
+    }
+
     function startGame() {
       resizeCanvas();
-      player.x = canvas.width / 2;
-      player.y = canvas.height / 2;
-      player.r = Math.max(canvas.height,canvas.width)/28;
-      player.speed = Math.max(canvas.height,canvas.width)/150;
+      updatePlayerStats();
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.x = w/2;
+      player.y = h/2;
       missiles.length = 0;
       gameOver = false;
       startTime = Date.now();
@@ -234,10 +254,13 @@
     }
 
     function gameLoop() {
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      updatePlayerStats();
       if (!gameOver) {
         survivedSec = (Date.now() - startTime) / 1000;
       }
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, w, h);
 
       // PC 이동
       let dx = 0, dy = 0;
@@ -250,17 +273,15 @@
         dx = joyDX;
         dy = joyDY;
       }
-      // 속도 조정
       if (dx !== 0 || dy !== 0) {
         let len = Math.sqrt(dx*dx + dy*dy);
         if(len > 1) { dx /= len; dy /= len; }
         player.x += player.speed * dx;
         player.y += player.speed * dy;
-        // 경계 체크
         if (player.x - player.r < 0) player.x = player.r;
-        if (player.x + player.r > canvas.width) player.x = canvas.width - player.r;
+        if (player.x + player.r > w) player.x = w - player.r;
         if (player.y - player.r < 0) player.y = player.r;
-        if (player.y + player.r > canvas.height) player.y = canvas.height - player.r;
+        if (player.y + player.r > h) player.y = h - player.r;
       }
 
       // 플레이어 그리기
@@ -288,8 +309,8 @@
           gameOver = true;
         }
         if (
-          m.x < -40 || m.x > canvas.width + 40 ||
-          m.y < -40 || m.y > canvas.height + 40
+          m.x < -40 || m.x > w + 40 ||
+          m.y < -40 || m.y > h + 40
         ) {
           missiles.splice(i, 1);
         }
@@ -305,10 +326,10 @@
 
       // 생존 시간 표시
       ctx.save();
-      ctx.font = "bold " + Math.round(canvas.width/30) + "px Consolas, Arial";
+      ctx.font = "bold " + Math.round(w/30) + "px Consolas, Arial";
       ctx.fillStyle = "#1976d2";
       ctx.textAlign = "right";
-      ctx.fillText(survivedSec.toFixed(1) + " Sec", canvas.width - 18, 32);
+      ctx.fillText(survivedSec.toFixed(1) + " Sec", w - 18, 32);
       ctx.restore();
 
       // 게임 오버 처리
@@ -331,7 +352,8 @@
           document.onkeydown = null;
           startGame();
         };
-        container.ontouchstart = function() {
+        container.ontouchstart = function(ev) {
+          if (ev.touches.length > 1) return;
           restartDiv.style.display = 'none';
           document.onkeydown = null;
           startGame();
@@ -342,34 +364,48 @@
     }
 
     // 최초 시작
-    resultDiv.textContent = '';
-    restartDiv.style.display = 'block';
-    resultDiv.style.display = 'none';
-    restartDiv.innerHTML = '스페이스바 또는 터치해서<br>시작하세요.';
-
-    document.onkeydown = function(e) {
-      if (e.code === "Space") {
-        document.onkeydown = null;
+    function initialStart() {
+      resizeCanvas();
+      updatePlayerStats();
+      resultDiv.textContent = '';
+      restartDiv.style.display = 'block';
+      resultDiv.style.display = 'none';
+      restartDiv.innerHTML = '스페이스바 또는 터치해서<br>시작하세요.';
+      document.onkeydown = function(e) {
+        if (e.code === "Space") {
+          document.onkeydown = null;
+          restartDiv.style.display = 'none';
+          startGame();
+        }
+        if (e.code === "Space") e.preventDefault();
+      };
+      restartDiv.onclick = function() {
         restartDiv.style.display = 'none';
+        document.onkeydown = null;
         startGame();
-      }
-      if (e.code === "Space") e.preventDefault();
-    };
-    restartDiv.onclick = function() {
-      restartDiv.style.display = 'none';
-      document.onkeydown = null;
-      startGame();
-    };
-    container.ontouchstart = function() {
-      restartDiv.style.display = 'none';
-      document.onkeydown = null;
-      startGame();
-    };
+      };
+      container.ontouchstart = function(ev) {
+        if (ev.touches.length > 1) return;
+        restartDiv.style.display = 'none';
+        document.onkeydown = null;
+        startGame();
+      };
+    }
 
-    // 리사이즈 시 속성 업데이트
+    initialStart();
+    resizeCanvas();
+
+    // 리사이즈 시 플레이어/미사일 좌표계 갱신
     window.addEventListener('resize', () => {
-      player.r = Math.max(canvas.height,canvas.width)/28;
-      player.speed = Math.max(canvas.height,canvas.width)/150;
+      const w = canvas.width / (window.devicePixelRatio||1);
+      const h = canvas.height / (window.devicePixelRatio||1);
+      player.r = Math.max(w,h)/28;
+      player.speed = Math.max(w,h)/150;
+      // 플레이어 화면 벗어나지 않게
+      if (player.x < player.r) player.x = player.r;
+      if (player.x > w - player.r) player.x = w - player.r;
+      if (player.y < player.r) player.y = player.r;
+      if (player.y > h - player.r) player.y = h - player.r;
     });
 
   </script>
