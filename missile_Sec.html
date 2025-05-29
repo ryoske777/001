@@ -5,9 +5,9 @@
   <title>미사일 피하기 게임</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    html, body { height: 100%; margin:0; padding:0; overflow: hidden; }
-    body { background: #333; margin:0; position:relative; height:100vh; }
-    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; }
+    html, body { height: 100%; margin:0; padding:0; overflow: hidden; touch-action: none;}
+    body { background: #333; margin:0; position:relative; height:100vh; touch-action: none;}
+    #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; margin:0; padding:0; touch-action: none;}
     canvas { background: #fff; display: block; width: 100vw; height: 100vh; border-radius: 0; touch-action: none;}
     #result {
       position: absolute;
@@ -104,11 +104,9 @@
     const restartDiv = document.getElementById('restart');
     const joystick = document.getElementById('joystick');
     const knob = joystick.querySelector('.joystick-knob');
-    const joybg = joystick.querySelector('.joystick-bg');
 
     // 캔버스 고해상도(레티나) 대응 및 크기/좌표 동기화
     function resizeCanvas() {
-      // 실제 픽셀 크기
       const dpr = window.devicePixelRatio || 1;
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -116,7 +114,7 @@
       canvas.height = h * dpr;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // 리셋
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
     }
     window.addEventListener('resize', resizeCanvas);
@@ -168,6 +166,7 @@
         knob.style.top  = (joyRadius - knobRadius) + "px";
         joystickActive = true;
         joyDX = 0; joyDY = 0;
+        ev.preventDefault();
       }, {passive:false});
 
       container.addEventListener('touchmove', function(ev) {
@@ -193,6 +192,7 @@
         joystickActive = false;
         joyDX = 0; joyDY = 0;
         joystick.style.display = "none";
+        ev.preventDefault();
       }, {passive:false});
     }
 
@@ -357,6 +357,7 @@
           restartDiv.style.display = 'none';
           document.onkeydown = null;
           startGame();
+          ev.preventDefault();
         };
         return;
       }
@@ -389,6 +390,7 @@
         restartDiv.style.display = 'none';
         document.onkeydown = null;
         startGame();
+        ev.preventDefault();
       };
     }
 
@@ -401,13 +403,11 @@
       const h = canvas.height / (window.devicePixelRatio||1);
       player.r = Math.max(w,h)/28;
       player.speed = Math.max(w,h)/150;
-      // 플레이어 화면 벗어나지 않게
       if (player.x < player.r) player.x = player.r;
       if (player.x > w - player.r) player.x = w - player.r;
       if (player.y < player.r) player.y = player.r;
       if (player.y > h - player.r) player.y = h - player.r;
     });
-
   </script>
 </body>
 </html>
