@@ -2,325 +2,146 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>미사일 피하기 게임</title>
+  <title>미사일 피하기 - 올인원 버전</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
-    html, body { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; touch-action:none;}
-    body { background:#333; }
+    html, body { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; background:#333; touch-action: none; }
+    body { font-family: 'Noto Sans KR', 'Consolas', Arial, sans-serif; }
     #game-container { position:fixed; top:0; left:0; width:100vw; height:100vh; }
-    canvas { background:#fff; width:100vw; height:74vh; display:block; margin:0 auto; touch-action:none; }
-    #settings-btn {
-      position:absolute; left:2vw; top:2vw; width:12vw; height:12vw; min-width:40px; min-height:40px;
-      max-width:58px; max-height:58px; z-index:10;
-      background:rgba(255,255,255,0.95); border-radius:50%; border:none;
-      display:flex; align-items:center; justify-content:center; box-shadow:0 1px 8px #1113; cursor:pointer;
+    canvas { display: block; width: 100vw; height: 100vh; background:#fff; }
+    #start-ui, #result-ui, #ranking-ui, #settings-ui {
+      position:fixed; left:0; top:0; width:100vw; height:100vh;
+      display:none; align-items:center; justify-content:center; flex-direction:column;
+      z-index: 100;
+      background:rgba(35,45,65,0.22); backdrop-filter:blur(1.4px); pointer-events: auto;
     }
-    #settings-btn svg { width:67%; height:67%; fill:#1976d2; }
+    .main-panel { background:#fff; padding:28px 34px 22px 34px; border-radius:28px; box-shadow:0 2px 28px #3337; min-width:290px; text-align:center;}
+    #start-ui { display: flex; }
+    #game-title { font-size:2.2em; color:#216bd6; margin-bottom:24px; font-weight:bold; letter-spacing:-2px;}
+    .mode-btn {
+      margin:8px 0 12px 0; padding:11px 38px; border:none; border-radius:16px; font-size:1.22em;
+      font-weight:700; background:#e3effa; color:#2254a7; box-shadow:0 1px 8px #dde9;
+      cursor:pointer; transition:background 0.18s;
+    }
+    .mode-btn.selected, .mode-btn:active { background:#216bd6; color:#fff; }
+    .theme-select { margin:12px 0 20px 0; }
+    #start-btn {
+      margin:14px 0 0 0; padding:11px 50px; border:none; border-radius:16px; font-size:1.26em;
+      background:#216bd6; color:#fff; font-weight:bold; box-shadow:0 1px 8px #bcd7fa;
+      cursor:pointer; letter-spacing:1px;
+    }
+    #result-ui, #ranking-ui, #settings-ui { justify-content:center; align-items:center; display:none; }
+    #result-ui .main-panel, #settings-ui .main-panel, #ranking-ui .main-panel {min-width:270px; max-width:99vw;}
+    #result-score, #result-best { font-size:1.8em; color:#d32f2f; margin:10px 0 0 0; font-family:'Consolas',Arial; }
+    #result-best { color:#1976d2; font-size:1.14em; margin:5px 0 0 0; }
+    .life-wrap { display:flex; gap:5px; justify-content:center; align-items:center; margin:12px 0 20px 0; }
+    .life {
+      display:inline-block; width:26px; height:26px; border-radius:50%; background:#fff; border:2px solid #bbb;
+      position:relative;
+    }
+    .life.on { background:#35a0fa; border-color:#1d5fae; box-shadow:0 0 8px #81c7fa; }
+    .life.shield { background:#ffe16b; border-color:#ffb700; box-shadow:0 0 9px #ffe16bcc; }
+    #result-btns { margin-top: 22px; display: flex; flex-direction:column; gap:10px; }
+    .main-btn { padding:12px 0; font-size:1.18em; background:#216bd6; color:#fff; border:none; border-radius:15px; font-weight:bold; cursor:pointer; }
+    #ranking-ui .main-panel {max-width:340px;}
+    #ranking-list { margin:18px 0; text-align:left; }
+    .rkitem { display:flex; justify-content:space-between; font-family:'Consolas',Arial; font-size:1.13em; margin:3px 0; }
+    .rk-lv { width:1.8em; font-weight:bold; color:#d32f2f;}
+    .rk-score { color:#1976d2; }
+    .rk-date { font-size:0.93em; color:#888; margin-left:5px; }
+    #settings-ui label {font-weight:bold; color:#1976d2; margin-right:8px;}
+    #theme-select { font-size:1em; padding:7px 10px; border-radius:8px; border:1px solid #b6d2ee; margin-top:8px;}
+    .close-btn {position:absolute; right:23px; top:23px; font-size:2em; color:#ccc; background:none; border:none; cursor:pointer;}
     #timer {
-      position:absolute; right:4vw; top:2vw; font-size:5vw; color:#222; font-family:'Consolas', Arial; z-index:10;
-      background:rgba(255,255,255,0.7); border-radius:1vw; padding:1vw 2vw;
+      position:absolute; right:3vw; top:2vw; font-size:2.1em; color:#1976d2; background:rgba(255,255,255,0.7); border-radius:8px; padding:3px 15px; font-family:'Consolas',Arial; z-index:10; font-weight:bold;
+      box-shadow:0 1px 10px #cde4fa99;
     }
-    #settings-panel {
-      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:88vw; max-width:340px; background:#fff; border-radius:18px; box-shadow:0 2px 20px #2225;
-      z-index:50; padding:7vw 5vw 6vw 5vw; display:none; text-align:center;
+    #life-ui { position:absolute; left:2vw; top:2vw; z-index:10; display:flex; gap:7px; }
+    #life-ui .life { width:22px; height:22px; }
+    #settings-gear {
+      position:absolute; left:50%; bottom:3vw; transform:translateX(-50%); width:56px; height:56px; background:#fff;
+      border-radius:50%; box-shadow:0 1px 8px #aacd; border:none; z-index:50;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      transition:background 0.17s;
     }
-    #settings-title { font-size:5vw; color:#1976d2; margin-bottom:5vw; font-weight:bold; }
-    #close-settings {
-      position:absolute; right:6vw; top:4vw; font-size:7vw; color:#999; background:none;
-      border:none; cursor:pointer; z-index:51;
-    }
-    #sensitivity-slider { width:100%; accent-color:#1976d2; margin:2vw 0; }
-    #sensitivity-value { color:#1976d2; font-weight:bold; font-size:4.5vw; }
-    #result {
-      position:absolute; left:50%; top:36%; transform:translate(-50%,-50%);
-      font-size:7vw; color:#d32f2f; font-family:'Consolas',Arial; font-weight:bold;
-      background:rgba(255,255,255,0.88); padding:3vw 7vw 1vw 7vw;
-      border-radius:5vw; display:none; z-index:30; text-align:center;
-      min-width:36vw; pointer-events:none;
-    }
-    #restart {
-      position:absolute; left:50%; top:61%; transform:translate(-50%,-50%);
-      font-size:5vw; color:#1976d2; font-family:'Consolas',Arial; background:none;
-      padding:0; border-radius:0; display:none; z-index:31; text-align:center;
-      box-shadow:none; user-select:none; font-weight:bold;
-      letter-spacing:-1px;
-    }
-    #countdown {
-      position:fixed; left:50%; top:44%; transform:translate(-50%,-50%);
-      font-size:14vw; color:#1976d2; font-family:'Consolas',Arial,sans-serif; font-weight:bold;
-      background:rgba(255,255,255,0.92); padding:4vw 10vw 3vw 10vw;
-      border-radius:5vw; display:none; z-index:100; text-align:center; box-shadow:0 2px 18px rgba(0,0,0,0.16);
-      user-select:none; pointer-events:none;
-    }
-    #virtual-pad {
-      position:fixed; left:50%; bottom:3vw; transform:translateX(-50%);
-      width:30vw; height:30vw; min-width:110px; min-height:110px; max-width:160px; max-height:160px;
-      z-index:50; 
-      display:flex; align-items:center; justify-content:center;
-      touch-action:none; user-select:none;
-      pointer-events:auto;
-      /* 최신 스타일: 반투명, blur, 밝은 그라데이션 */
-      background:rgba(200,222,255,0.10);
-      border-radius:50%;
-      box-shadow: 0 2px 18px #87b8e699, 0 1px 8px #9cf7;
-      border: 2.5px solid #91b4d4;
-      backdrop-filter: blur(2.8px);
-    }
-    .pad-btn {
-      position:absolute; display:flex; align-items:center; justify-content:center;
-      background:rgba(255,255,255,0.45);
-      border: none; outline: none;
-      border-radius: 45%; 
-      width:31%; height:31%; min-width:32px; min-height:32px; max-width:42px; max-height:42px;
-      transition: background 0.11s, box-shadow 0.12s, filter 0.11s;
-      box-shadow: 0 1px 8px #2221, 0 0.5px 1.5px #6cf3;
-      color: #2b6fae; font-size: 2.5em; cursor:pointer;
-      filter: drop-shadow(0 0 2px #fff8);
-      opacity: 0.98;
-      pointer-events:auto;
-    }
-    .pad-btn:active, .pad-btn.active {
-      background: linear-gradient(150deg,#e2f1fa 50%,#b5e0fa 90%);
-      box-shadow:0 1px 18px #40a7e455, 0 1px 4px #aaf2;
-      color: #1367d1;
-      opacity: 1.0;
-      filter: brightness(1.05) drop-shadow(0 0 2px #98e0f7cc);
-    }
+    #settings-gear svg { width:63%; height:63%; fill:#1976d2; }
+    #virtual-pad { position:fixed; left:50%; bottom:3vw; transform:translateX(-50%); width:30vw; height:30vw; min-width:112px; min-height:112px; max-width:170px; max-height:170px; z-index:51; display:flex; align-items:center; justify-content:center; background:rgba(200,222,255,0.10); border-radius:50%; box-shadow: 0 2px 18px #87b8e699, 0 1px 8px #9cf7; border: 2.5px solid #91b4d4; backdrop-filter: blur(2.8px); pointer-events:auto; }
+    .pad-btn { position:absolute; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.45); border:none; border-radius: 45%; width:32%; height:32%; min-width:33px; min-height:33px; max-width:46px; max-height:46px; transition: background 0.11s, box-shadow 0.12s, filter 0.11s; box-shadow: 0 1px 8px #2221, 0 0.5px 1.5px #6cf3; color: #2b6fae; font-size: 2.1em; cursor:pointer; filter: drop-shadow(0 0 2px #fff8); opacity: 0.99; pointer-events:auto; }
+    .pad-btn:active, .pad-btn.active { background: linear-gradient(150deg,#e2f1fa 50%,#b5e0fa 90%); box-shadow:0 1px 18px #40a7e455, 0 1px 4px #aaf2; color: #1367d1; opacity: 1.0; filter: brightness(1.05) drop-shadow(0 0 2px #98e0f7cc); }
     #pad-up    { left:34.5%; top:5.8%; }
     #pad-down  { left:34.5%; bottom:5.8%; }
     #pad-left  { left:5.8%; top:34.5%; }
     #pad-right { right:5.8%; top:34.5%; }
-    @media (max-width:450px) {
-      #virtual-pad { width:42vw; height:42vw; min-width:76px; min-height:76px; max-width:126px; max-height:126px;}
-      .pad-btn { min-width:20px; min-height:20px; max-width:32px; max-height:32px; font-size:1.85em;}
+    @media (max-width:700px) { #game-title { font-size:6vw; }
+      #start-ui .main-panel, #result-ui .main-panel, #ranking-ui .main-panel, #settings-ui .main-panel {min-width:82vw;max-width:97vw;}
+      #result-score { font-size:6vw; }
     }
   </style>
 </head>
 <body>
-<div id="game-container">
-  <canvas id="game"></canvas>
-  <button id="settings-btn" aria-label="설정">
-    <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0-.32,0-.64,0-1s0-.65,0-1l2.11-1.65a.47.47,0,0,0,.11-.61l-2-3.46a.47.47,0,0,0-.57-.22l-2.49,1a7.09,7.09,0,0,0-1.74-1l-.38-2.65A.47.47,0,0,0,13,2h-4a.47.47,0,0,0-.46.39l-.38,2.65a7.09,7.09,0,0,0-1.74,1l-2.49-1a.47.47,0,0,0-.57.22l-2,3.46a.47.47,0,0,0,.11.61L4.86,10c0,.32,0,.64,0,1s0,.65,0,1L2.75,13.65a.47.47,0,0,0-.11.61l2,3.46a.47.47,0,0,0,.57.22l2.49-1a7.09,7.09,0,0,0,1.74,1l.38,2.65A.47.47,0,0,0,9,22h4a.47.47,0,0,0,.46-.39l.38-2.65a7.09,7.09,0,0,0,1.74-1l2.49,1a.47.47,0,0,0,.57-.22l2-3.46a.47.47,0,0,0-.11-.61ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
-  </button>
-  <div id="timer">0.0sec</div>
-  <div id="settings-panel">
-    <button id="close-settings" aria-label="닫기">✕</button>
-    <div id="settings-title">설정</div>
-    <label for="sensitivity-slider" style="font-weight:bold;">조작 감도(민감도)</label>
-    <input type="range" id="sensitivity-slider" min="10" max="100" value="50" step="1">
-    <div id="sensitivity-value">50</div>
+  <div id="game-container">
+    <canvas id="game"></canvas>
+    <div id="timer">0.0 Sec</div>
+    <div id="life-ui"></div>
+    <!-- 옵션(톱니) 버튼 -->
+    <button id="settings-gear" title="설정"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0-.32,0-.64,0-1s0-.65,0-1l2.11-1.65a.47.47,0,0,0,.11-.61l-2-3.46a.47.47,0,0,0-.57-.22l-2.49,1a7.09,7.09,0,0,0-1.74-1l-.38-2.65A.47.47,0,0,0,13,2h-4a.47.47,0,0,0-.46.39l-.38,2.65a7.09,7.09,0,0,0-1.74,1l-2.49-1a.47.47,0,0,0-.57.22l-2,3.46a.47.47,0,0,0,.11.61L4.86,10c0,.32,0,.64,0,1s0,.65,0,1L2.75,13.65a.47.47,0,0,0-.11.61l2,3.46a.47.47,0,0,0,.57.22l2.49-1a7.09,7.09,0,0,0,1.74,1l.38,2.65A.47.47,0,0,0,9,22h4a.47.47,0,0,0,.46-.39l.38-2.65a7.09,7.09,0,0,0,1.74-1l2.49,1a.47.47,0,0,0,.57-.22l2-3.46a.47.47,0,0,0-.11-.61ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"></path></svg></button>
+    <!-- 버추얼 패드 -->
+    <div id="virtual-pad">
+      <button class="pad-btn" id="pad-up"    aria-label="위방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="pad-btn" id="pad-down"  aria-label="아래방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="pad-btn" id="pad-left"  aria-label="왼쪽방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="15,6 9,12 15,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="pad-btn" id="pad-right" aria-label="오른쪽방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="9,6 15,12 9,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <!-- 오버레이 UI들 -->
+    <div id="start-ui"><div class="main-panel">
+      <div id="game-title">미사일 피하기</div>
+      <div style="font-size:1.08em;color:#555;margin-bottom:10px;">조이스틱/패드 또는 키보드 방향키로 플레이<br>미사일을 피해 최대한 오래 살아남으세요!</div>
+      <div id="mode-select">
+        <button class="mode-btn" data-mode="easy">쉬움</button>
+        <button class="mode-btn selected" data-mode="normal">보통</button>
+        <button class="mode-btn" data-mode="hard">어려움</button>
+      </div>
+      <div class="theme-select">
+        <label for="theme-select">테마:</label>
+        <select id="theme-select">
+          <option value="default">화이트</option>
+          <option value="dark">다크</option>
+          <option value="neon">네온</option>
+        </select>
+      </div>
+      <button id="start-btn">게임 시작</button>
+      <button class="main-btn" style="margin-top:10px; background:#f5f5fa; color:#2467ca;" id="view-ranking-btn">랭킹 보기</button>
+      <div style="margin-top:10px;color:#888;font-size:0.93em;">각 난이도별 최고 기록 랭킹</div>
+    </div></div>
+    <div id="result-ui"><div class="main-panel">
+      <div id="result-score">0.0 Sec</div>
+      <div id="result-best">최고 기록: 0.0 Sec</div>
+      <div class="life-wrap" id="result-life"></div>
+      <div id="result-items" style="margin:6px 0 0 0; min-height:18px;"></div>
+      <div id="result-btns">
+        <button class="main-btn" id="retry-btn">다시하기</button>
+        <button class="main-btn" style="background:#e3e6ec; color:#2467ca;" id="result-view-ranking">랭킹 보기</button>
+        <button class="main-btn" style="background:#eee; color:#555;" id="result-back-btn">처음으로</button>
+      </div>
+    </div></div>
+    <div id="ranking-ui"><div class="main-panel">
+      <div style="font-size:1.36em;color:#216bd6;font-weight:bold;">랭킹(최고기록 TOP5)</div>
+      <div id="ranking-tab" style="margin:14px 0 8px 0;">
+        <button class="mode-btn rkmode selected" data-rk="easy">쉬움</button>
+        <button class="mode-btn rkmode" data-rk="normal">보통</button>
+        <button class="mode-btn rkmode" data-rk="hard">어려움</button>
+      </div>
+      <div id="ranking-list"></div>
+      <button class="main-btn" id="close-ranking-btn">닫기</button>
+    </div></div>
+    <div id="settings-ui"><div class="main-panel">
+      <button class="close-btn" id="close-settings-btn">✕</button>
+      <div style="font-size:1.23em;color:#216bd6;font-weight:bold;margin-bottom:12px;">설정</div>
+      <label for="sensitivity-slider">민감도</label>
+      <input type="range" id="sensitivity-slider" min="10" max="100" value="50" step="1" style="width:58%;vertical-align:middle;">
+      <span id="sensitivity-value">50</span>
+      <div style="margin-top:18px;"><label for="theme-select-2">테마:</label>
+      <select id="theme-select-2"><option value="default">화이트</option><option value="dark">다크</option><option value="neon">네온</option></select></div>
+    </div></div>
   </div>
-  <div id="result"></div>
-  <div id="restart">터치해서 시작</div>
-  <div id="countdown"></div>
-  <div id="virtual-pad">
-    <button class="pad-btn" id="pad-up"    aria-label="위방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="6,15 12,9 18,15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="pad-btn" id="pad-down"  aria-label="아래방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="pad-btn" id="pad-left"  aria-label="왼쪽방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="15,6 9,12 15,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button class="pad-btn" id="pad-right" aria-label="오른쪽방향"><svg width="25" height="25" viewBox="0 0 24 24"><polyline points="9,6 15,12 9,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-  </div>
-</div>
-<script>
-let sensitivity = 0.5;
-let isPaused = false, waitingForResume = false, startTime=0, missileInterval=900, lastMissileTime=0, gameOver=false;
-let survivedSec = 0;
-const missiles = [];
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const timerDiv = document.getElementById('timer');
-const resultDiv = document.getElementById('result');
-const restartDiv = document.getElementById('restart');
-const settingsBtn = document.getElementById('settings-btn');
-const settingsPanel = document.getElementById('settings-panel');
-const closeSettings = document.getElementById('close-settings');
-const slider = document.getElementById('sensitivity-slider');
-const sValue = document.getElementById('sensitivity-value');
-const countdownDiv = document.getElementById('countdown');
-const pad = document.getElementById('virtual-pad');
-const padUp = document.getElementById('pad-up');
-const padDown = document.getElementById('pad-down');
-const padLeft = document.getElementById('pad-left');
-const padRight = document.getElementById('pad-right');
-let player = { x:0, y:0, r:30, color:'#5ba4e6', speed:5 };
-let moveState = {up:false,down:false,left:false,right:false};
-
-slider.value = 50;
-slider.addEventListener('input', function() {
-  sensitivity = slider.value/100;
-  sValue.textContent = slider.value;
-});
-
-function showSettings() {
-  isPaused = true;
-  waitingForResume = false;
-  settingsPanel.style.display = 'block';
-}
-function closeSettingsPanel() {
-  settingsPanel.style.display = 'none';
-  countdown(3);
-}
-settingsBtn.addEventListener('touchstart', e=>{e.preventDefault();showSettings();});
-settingsBtn.addEventListener('click', e=>{e.preventDefault();showSettings();});
-closeSettings.addEventListener('touchstart', e=>{e.preventDefault();closeSettingsPanel();});
-closeSettings.addEventListener('click', e=>{e.preventDefault();closeSettingsPanel();});
-
-function countdown(n) {
-  waitingForResume = true;
-  isPaused = true;
-  countdownDiv.textContent = n;
-  countdownDiv.style.display = 'block';
-  let count = n;
-  function next() {
-    if(count>1){
-      setTimeout(()=>{count--; countdownDiv.textContent = count; next();}, 800);
-    }else{
-      setTimeout(()=>{
-        countdownDiv.style.display='none';
-        isPaused = false; waitingForResume = false;
-        startTime = Date.now() - survivedSec*1000;
-      },800);
-    }
-  } next();
-}
-
-function resizeCanvas() {
-  const dpr = window.devicePixelRatio||1, w=window.innerWidth, h=window.innerHeight*0.74;
-  canvas.width = w*dpr; canvas.height = h*dpr;
-  canvas.style.width=w+'px'; canvas.style.height=h+'px';
-  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
-  updatePlayerStats(true);
-}
-function updatePlayerStats(forceCenter) {
-  const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
-  player.r = Math.round(Math.max(w,h)/19.5)||30; player.speed=Math.max(w,h)/110*sensitivity||5;
-  if(isNaN(player.x)||isNaN(player.y)||isNaN(player.r)||forceCenter||
-    player.x<player.r||player.x>w-player.r||player.y<player.r||player.y>h-player.r){
-    player.x = w/2; player.y = h/2;
-  }
-}
-function spawnMissile() {
-  const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
-  const edge = Math.floor(Math.random()*4);
-  let x, y, dx, dy, missileSpeed = Math.max(w,h)/160+Math.random()*1.5, mSize=Math.max(w,h)/28+Math.random()*8;
-  if(edge===0){ x=Math.random()*w; y=0; }
-  else if(edge===1){ x=Math.random()*w; y=h; }
-  else if(edge===2){ x=0; y=Math.random()*h; }
-  else{ x=w; y=Math.random()*h; }
-  const angle=Math.atan2(player.y-y, player.x-x);
-  dx=Math.cos(angle)*missileSpeed; dy=Math.sin(angle)*missileSpeed;
-  missiles.push({x,y,dx,dy,r:mSize, color:'#f44336'});
-}
-function checkCollision(a,b){
-  const dist=Math.hypot(a.x-b.x,a.y-b.y); return dist<(a.r+b.r);
-}
-function startGame() {
-  resizeCanvas(); updatePlayerStats(true);
-  player.x = canvas.width/(window.devicePixelRatio||1)/2;
-  player.y = canvas.height/(window.devicePixelRatio||1)/2;
-  missiles.length=0; gameOver=false;
-  survivedSec=0; missileInterval=900;
-  resultDiv.style.display='none'; restartDiv.style.display='none';
-  isPaused = false; waitingForResume = false; startTime = Date.now();
-  requestAnimationFrame(gameLoop);
-}
-function gameLoop() {
-  const w=canvas.width/(window.devicePixelRatio||1), h=canvas.height/(window.devicePixelRatio||1);
-  updatePlayerStats();
-  if(isPaused||waitingForResume){
-    ctx.clearRect(0,0,w,h);
-    ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
-    ctx.fillStyle=player.color; ctx.shadowColor='#90caf9'; ctx.shadowBlur=10; ctx.fill(); ctx.closePath(); ctx.shadowBlur=0;
-    for(let i=0;i<missiles.length;i++){
-      const m=missiles[i];
-      ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2);
-      ctx.fillStyle=m.color; ctx.fill(); ctx.closePath();
-    }
-    timerDiv.textContent = survivedSec.toFixed(1)+'sec';
-    requestAnimationFrame(gameLoop); return;
-  }
-  survivedSec = (Date.now()-startTime)/1000;
-  ctx.clearRect(0,0,w,h);
-  let dx=0,dy=0;
-  if(moveState.up)dy-=1;
-  if(moveState.down)dy+=1;
-  if(moveState.left)dx-=1;
-  if(moveState.right)dx+=1;
-  if(dx!==0||dy!==0){
-    let len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
-    player.x += player.speed*dx; player.y += player.speed*dy;
-    if(player.x-player.r<0)player.x=player.r;
-    if(player.x+player.r>w)player.x=w-player.r;
-    if(player.y-player.r<0)player.y=player.r;
-    if(player.y+player.r>h)player.y=h-player.r;
-  }
-  ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
-  ctx.fillStyle=player.color; ctx.shadowColor='#90caf9'; ctx.shadowBlur=10; ctx.fill(); ctx.closePath(); ctx.shadowBlur=0;
-  for(let i=missiles.length-1;i>=0;i--){
-    const m=missiles[i];
-    m.x+=m.dx; m.y+=m.dy;
-    ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,Math.PI*2);
-    ctx.fillStyle=m.color; ctx.fill(); ctx.closePath();
-    if(checkCollision(player,m)){gameOver=true;}
-    if(m.x<-40||m.x>w+40||m.y<-40||m.y>h+40){missiles.splice(i,1);}
-  }
-  const now=Date.now();
-  if(now-lastMissileTime>missileInterval && !gameOver){
-    spawnMissile(); lastMissileTime=now;
-    if(missileInterval>450)missileInterval-=8;
-  }
-  timerDiv.textContent = survivedSec.toFixed(1)+'sec';
-  if(gameOver){
-    resultDiv.textContent = survivedSec.toFixed(1)+' Sec';
-    resultDiv.style.display='block';
-    restartDiv.style.display='block';
-    pad.style.pointerEvents = 'none';
-    canvas.ontouchstart = function(ev){
-      if(ev.touches.length>1)return;
-      restartDiv.style.display='none'; pad.style.pointerEvents = 'auto'; startGame(); ev.preventDefault();
-    };
-    return;
-  }
-  requestAnimationFrame(gameLoop);
-}
-function setPadEvents(btn, dir) {
-  btn.addEventListener('touchstart', e=>{
-    moveState[dir]=true; btn.classList.add('active'); e.preventDefault();
-  },{passive:false});
-  btn.addEventListener('touchend', e=>{
-    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
-  },{passive:false});
-  btn.addEventListener('touchcancel', e=>{
-    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
-  },{passive:false});
-  btn.addEventListener('mousedown', e=>{
-    moveState[dir]=true; btn.classList.add('active'); e.preventDefault();
-  });
-  btn.addEventListener('mouseup', e=>{
-    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
-  });
-  btn.addEventListener('mouseleave', e=>{
-    moveState[dir]=false; btn.classList.remove('active'); e.preventDefault();
-  });
-}
-setPadEvents(padUp, "up");
-setPadEvents(padDown, "down");
-setPadEvents(padLeft, "left");
-setPadEvents(padRight, "right");
-
-function initialStart() {
-  resizeCanvas(); updatePlayerStats(true);
-  resultDiv.textContent=''; restartDiv.style.display='block';
-  resultDiv.style.display='none'; restartDiv.innerHTML='터치해서 시작';
-  pad.style.pointerEvents = 'none'; // 시작 전 pad 비활성화
-  // 화면 어디든 터치하면 시작
-  canvas.ontouchstart = function(ev){
-    if(ev.touches.length>1)return;
-    restartDiv.style.display='none'; pad.style.pointerEvents = 'auto'; startGame(); ev.preventDefault();
-  };
-}
-window.addEventListener('resize', resizeCanvas);
-initialStart();
-</script>
-</body>
-</html>
+  <audio id="audio-hit" src
